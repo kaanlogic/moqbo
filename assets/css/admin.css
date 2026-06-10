@@ -1,9 +1,9 @@
 .plainday-color-swatch {
-	display: inline-block;
-	width: 1.4em;
-	height: 1.4em;
-	margin-right: 0.5em;
-	vertical-align: middle;
-	border: 1px solid #C3C4C7;
-	border-radius: 999px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.5em;
+    border: 1px solid #c3c4c7;
+    border-radius: 999px;
+    width: 1.4em;
+    height: 1.4em;
 }
