@@ -60,4 +60,5 @@
 .plainday-event-popover__description {
     margin: 0;
     font-size: var(--sx-font-small);
+    white-space: pre-line;
 }

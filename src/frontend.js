@@ -10,6 +10,7 @@ const MIN_WEEK_GRID_HEIGHT = 240;
 const EVENT_POPOVER_MARGIN = 12;
 let activeModal = null;
 let lastFocusedElement = null;
+const datePickerSyncContainers = new WeakSet();
 
 function padNumber(value) {
     return String(value).padStart(2, "0");
@@ -31,6 +32,30 @@ function syncDatePickerInput($app) {
     }
 
     datePickerState.inputDisplayedValue.value = formatPlainDate(datePickerState.selectedDate.value);
+}
+
+function queueDatePickerInputSync($app) {
+    if (!$app) {
+        return;
+    }
+
+    syncDatePickerInput($app);
+    window.requestAnimationFrame(() => syncDatePickerInput($app));
+}
+
+function setupDatePickerInputSync(container, $app) {
+    if (datePickerSyncContainers.has(container)) {
+        return;
+    }
+
+    datePickerSyncContainers.add(container);
+    container.addEventListener("click", (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+
+        if (target && target.closest(".sx__today-button")) {
+            queueDatePickerInputSync($app);
+        }
+    });
 }
 
 function getResponsiveBreakpoint(instance) {
@@ -362,13 +387,11 @@ function initInstance(instance) {
                 onRender: ($app) => {
                     scheduleXApp = $app;
                     setupResponsiveViewPairing(container, $app, viewNames, responsiveBreakpoint);
-                    syncDatePickerInput($app);
-                    window.requestAnimationFrame(() => syncDatePickerInput($app));
+                    setupDatePickerInputSync(container, $app);
+                    queueDatePickerInputSync($app);
                 },
                 onSelectedDateUpdate: () => {
-                    if (scheduleXApp) {
-                        window.requestAnimationFrame(() => syncDatePickerInput(scheduleXApp));
-                    }
+                    queueDatePickerInputSync(scheduleXApp);
                 }
             }
         });
