@@ -219,10 +219,18 @@ class Plainday_Admin {
 							<td><input name="name" type="text" id="plainday-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
 						</tr>
 						<tr>
+							<th scope="row"><?php esc_html_e( 'Slug Generation', 'plainday' ); ?></th>
+							<td>
+								<label for="plainday-auto-generate-slug">
+									<input name="auto_generate_slug" type="checkbox" id="plainday-auto-generate-slug" value="1" <?php checked( $values['auto_generate_slug'] ); ?>>
+									<?php esc_html_e( 'Auto generate a slug based on the event name', 'plainday' ); ?>
+								</label>
+							</td>
+						</tr>
+						<tr <?php if ( $values['auto_generate_slug'] ) : ?>hidden<?php endif; ?>>
 							<th scope="row"><label for="plainday-event-slug"><?php esc_html_e( 'Slug', 'plainday' ); ?></label></th>
 							<td>
-								<input name="slug" type="text" id="plainday-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>">
-								<p class="description"><?php esc_html_e( 'Leave blank to generate from the event name.', 'plainday' ); ?></p>
+								<input name="slug" type="text" id="plainday-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
 							</td>
 						</tr>
 						<tr>
@@ -549,19 +557,21 @@ class Plainday_Admin {
 		$errors = new WP_Error();
 		$raw    = wp_unslash( $_POST );
 
-		$name = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-		$slug = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
+		$name               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
+		$auto_generate_slug = ! empty( $raw['auto_generate_slug'] );
+		$start_date         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
+		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : ( isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '' );
 
 		if ( '' === $name ) {
 			$errors->add( 'missing_name', __( 'Event name is required.', 'plainday' ) );
 		}
 
 		if ( '' === $slug ) {
-			$slug = sanitize_title( $name );
-		}
-
-		if ( '' === $slug ) {
-			$errors->add( 'missing_slug', __( 'Event slug could not be generated. Enter a slug manually.', 'plainday' ) );
+			if ( $auto_generate_slug ) {
+				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'plainday' ) );
+			} else {
+				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'plainday' ) );
+			}
 		}
 
 		$duplicate = '' !== $slug ? Plainday_DB::get_event( $slug ) : null;
@@ -577,7 +587,6 @@ class Plainday_Admin {
 		}
 
 		$all_day    = ! empty( $raw['all_day'] );
-		$start_date = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
 		$end_date   = isset( $raw['end_date'] ) ? sanitize_text_field( $raw['end_date'] ) : '';
 		$start_time = $all_day ? '00:00' : self::default_time( isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '', '09:00' );
 		$end_time   = $all_day ? '00:00' : self::default_time( isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '', '10:00' );
@@ -673,43 +682,46 @@ class Plainday_Admin {
 	 */
 	private static function get_event_form_values( $event ) {
 		$defaults = array(
-			'name'          => '',
-			'slug'          => '',
-			'start_date'    => current_time( 'Y-m-d' ),
-			'start_time'    => '09:00',
-			'end_date'      => current_time( 'Y-m-d' ),
-			'end_time'      => '10:00',
-			'all_day'       => false,
-			'description'   => '',
-			'category_slug' => '',
+			'name'               => '',
+			'slug'               => '',
+			'auto_generate_slug' => true,
+			'start_date'         => current_time( 'Y-m-d' ),
+			'start_time'         => '09:00',
+			'end_date'           => current_time( 'Y-m-d' ),
+			'end_time'           => '10:00',
+			'all_day'            => false,
+			'description'        => '',
+			'category_slug'      => '',
 		);
 
 		if ( $event ) {
 			$defaults = array(
-				'name'          => $event['name'],
-				'slug'          => $event['slug'],
-				'start_date'    => substr( $event['start_at'], 0, 10 ),
-				'start_time'    => substr( $event['start_at'], 11, 5 ),
-				'end_date'      => substr( $event['end_at'], 0, 10 ),
-				'end_time'      => substr( $event['end_at'], 11, 5 ),
-				'all_day'       => (bool) $event['all_day'],
-				'description'   => $event['description'],
-				'category_slug' => $event['category_slug'],
+				'name'               => $event['name'],
+				'slug'               => $event['slug'],
+				'auto_generate_slug' => false,
+				'start_date'         => substr( $event['start_at'], 0, 10 ),
+				'start_time'         => substr( $event['start_at'], 11, 5 ),
+				'end_date'           => substr( $event['end_at'], 0, 10 ),
+				'end_time'           => substr( $event['end_at'], 11, 5 ),
+				'all_day'            => (bool) $event['all_day'],
+				'description'        => $event['description'],
+				'category_slug'      => $event['category_slug'],
 			);
 		}
 
 		if ( self::is_post_request( 'plainday_event_nonce' ) ) {
 			$raw = wp_unslash( $_POST );
 
-			$defaults['name']          = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-			$defaults['slug']          = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
-			$defaults['start_date']    = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
-			$defaults['start_time']    = isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '';
-			$defaults['end_date']      = isset( $raw['end_date'] ) ? sanitize_text_field( $raw['end_date'] ) : '';
-			$defaults['end_time']      = isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '';
-			$defaults['all_day']       = ! empty( $raw['all_day'] );
-			$defaults['description']   = isset( $raw['description'] ) ? sanitize_textarea_field( $raw['description'] ) : '';
-			$defaults['category_slug'] = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
+			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
+			$defaults['slug']               = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
+			$defaults['auto_generate_slug'] = ! empty( $raw['auto_generate_slug'] );
+			$defaults['start_date']         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
+			$defaults['start_time']         = isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '';
+			$defaults['end_date']           = isset( $raw['end_date'] ) ? sanitize_text_field( $raw['end_date'] ) : '';
+			$defaults['end_time']           = isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '';
+			$defaults['all_day']            = ! empty( $raw['all_day'] );
+			$defaults['description']        = isset( $raw['description'] ) ? sanitize_textarea_field( $raw['description'] ) : '';
+			$defaults['category_slug']      = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
 		}
 
 		return $defaults;
@@ -824,6 +836,27 @@ class Plainday_Admin {
 	 */
 	private static function default_time( $time, $default ) {
 		return '' === trim( $time ) ? $default : $time;
+	}
+
+	/**
+	 * Generate an event slug from the start date and name.
+	 *
+	 * @param string $date Start date in YYYY-MM-DD format.
+	 * @param string $name Event name.
+	 * @return string
+	 */
+	private static function generate_event_slug( $date, $name ) {
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+			return '';
+		}
+
+		$name_slug = sanitize_title( $name );
+
+		if ( '' === $name_slug ) {
+			return '';
+		}
+
+		return $date . '-' . $name_slug;
 	}
 
 	/**
