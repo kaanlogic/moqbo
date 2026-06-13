@@ -386,6 +386,35 @@ class Presto_DB {
 	}
 
 	/**
+	 * Return the next upcoming event whose name contains a search string.
+	 *
+	 * @param string $name Event name fragment.
+	 * @return array|null
+	 */
+	public static function get_next_event_by_name( $name ) {
+		global $wpdb;
+
+		$like        = '%' . $wpdb->esc_like( $name ) . '%';
+		$today_start = current_time( 'Y-m-d' ) . ' 00:00:00';
+		$now         = current_time( 'mysql' );
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT e.*
+				FROM ' . self::events_table() . ' e
+				WHERE e.name LIKE %s
+				AND ( ( e.all_day = 1 AND e.start_at >= %s ) OR ( e.all_day = 0 AND e.start_at >= %s ) )
+				ORDER BY e.start_at ASC, e.slug ASC
+				LIMIT 1',
+				$like,
+				$today_start,
+				$now
+			), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			ARRAY_A
+		);
+	}
+
+	/**
 	 * Count events matching query args.
 	 *
 	 * @param array $args Query args.

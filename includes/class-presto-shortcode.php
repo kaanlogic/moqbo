@@ -18,6 +18,7 @@ class Presto_Shortcode {
 	 */
 	public static function register() {
 		add_shortcode( 'presto', array( __CLASS__, 'render' ) );
+		add_shortcode( 'presto-getdate', array( __CLASS__, 'render_getdate' ) );
 	}
 
 	/**
@@ -72,6 +73,42 @@ class Presto_Shortcode {
 		<?php
 
 		return ob_get_clean();
+	}
+
+	/**
+	 * Render the next date for an event whose name contains the supplied value.
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return string
+	 */
+	public static function render_getdate( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'name' => '',
+			),
+			$atts,
+			'presto-getdate'
+		);
+
+		$name = sanitize_text_field( $atts['name'] );
+
+		if ( '' === $name ) {
+			return 'n/a';
+		}
+
+		$event = Presto_DB::get_next_event_by_name( $name );
+
+		if ( ! $event ) {
+			return 'n/a';
+		}
+
+		$dt = self::parse_stored_datetime( $event['start_at'] );
+
+		if ( ! $dt ) {
+			return 'n/a';
+		}
+
+		return esc_html( wp_date( get_option( 'date_format' ), $dt->getTimestamp(), wp_timezone() ) );
 	}
 
 	/**
