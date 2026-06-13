@@ -57,6 +57,12 @@
     margin: 0 0 0.25rem 0;
     line-height: 1.25;
 }
+.presto-event-popover__time {
+    font-size: var(--sx-font-small);
+}
+.presto-event-popover__location {
+    font-size: var(--sx-font-small);
+}
 .presto-event-popover__description {
     margin: 1rem 0 0 0;
     font-size: var(--sx-font-small);

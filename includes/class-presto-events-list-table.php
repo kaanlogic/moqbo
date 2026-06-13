@@ -71,6 +71,7 @@ class Presto_Events_List_Table extends WP_List_Table {
 			'cb'          => '<input type="checkbox">',
 			'name'        => __( 'Name', 'presto' ),
 			'slug'        => __( 'Slug', 'presto' ),
+			'location'    => __( 'Location', 'presto' ),
 			'category'    => __( 'Event Category', 'presto' ),
 			'description' => __( 'Description', 'presto' ),
 			'all_day'     => __( 'All-day event', 'presto' ),
@@ -90,6 +91,7 @@ class Presto_Events_List_Table extends WP_List_Table {
 		return array(
 			'name'       => array( 'name', false ),
 			'slug'       => array( 'slug', false ),
+			'location'   => array( 'location', false ),
 			'category'   => array( 'category', false ),
 			'all_day'    => array( 'all_day', false ),
 			'start_date' => array( 'start_date', false ),
@@ -172,6 +174,8 @@ class Presto_Events_List_Table extends WP_List_Table {
 		switch ( $column_name ) {
 			case 'slug':
 				return esc_html( $item['slug'] );
+			case 'location':
+				return esc_html( $item['location'] );
 			case 'category':
 				return esc_html( $item['category_name'] ? $item['category_name'] : $item['category_slug'] );
 			case 'description':

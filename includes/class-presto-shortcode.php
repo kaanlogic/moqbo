@@ -63,7 +63,8 @@ class Presto_Shortcode {
 						<span data-presto-modal-field="categoryName"></span>
 					</div>
 					<h2 id="<?php echo esc_attr( $modal_id ); ?>-title" class="sx__event-modal__title presto-event-popover__title" data-presto-modal-field="title"></h2>
-					<div class="sx__event-modal__time presto-event-popover__time" data-presto-modal-field="time"></div>
+					<div class="presto-event-popover__time" data-presto-modal-field="time"></div>
+					<div class="presto-event-popover__location" data-presto-modal-field="location"></div>
 					<p class="presto-event-popover__description" data-presto-modal-field="description"></p>
 				</div>
 			</div>
@@ -153,12 +154,15 @@ class Presto_Shortcode {
 		return array_values(
 			array_map(
 				function ( $event ) {
-					$all_day = (bool) $event['all_day'];
+					$all_day     = (bool) $event['all_day'];
+					$description = wp_strip_all_tags( $event['description'] );
+					$location    = wp_strip_all_tags( $event['location'] );
 
 					$prepared = array(
 						'id'          => $event['slug'],
 						'title'       => $event['name'],
-						'description' => wp_strip_all_tags( $event['description'] ),
+						'description' => $description,
+						'location'    => $location,
 						'calendarId'  => $event['category_slug'],
 						'allDay'      => $all_day,
 						'startDate'   => substr( $event['start_at'], 0, 10 ),
@@ -173,7 +177,8 @@ class Presto_Shortcode {
 							'categoryColor' => self::normalize_hex( $event['category_color'] ),
 							'start'         => self::format_event_datetime( $event['start_at'], $all_day ),
 							'end'           => self::format_event_datetime( $event['end_at'], $all_day ),
-							'description'   => wp_strip_all_tags( $event['description'] ),
+							'location'      => $location,
+							'description'   => $description,
 						),
 					);
 

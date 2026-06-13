@@ -234,6 +234,10 @@ class Presto_Admin {
 							</td>
 						</tr>
 						<tr>
+							<th scope="row"><label for="presto-location"><?php esc_html_e( 'Location', 'presto' ); ?></label></th>
+							<td><input name="location" type="text" id="presto-location" class="regular-text" value="<?php echo esc_attr( $values['location'] ); ?>"></td>
+						</tr>
+						<tr>
 							<th scope="row"><label for="presto-category"><?php esc_html_e( 'Event Category', 'presto' ); ?></label></th>
 							<td>
 								<select name="category_slug" id="presto-category" required <?php disabled( empty( $categories ) ); ?>>
@@ -558,6 +562,7 @@ class Presto_Admin {
 		$raw    = wp_unslash( $_POST );
 
 		$name               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
+		$location           = isset( $raw['location'] ) ? sanitize_text_field( $raw['location'] ) : '';
 		$auto_generate_slug = ! empty( $raw['auto_generate_slug'] );
 		$start_date         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
 		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : ( isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '' );
@@ -619,6 +624,7 @@ class Presto_Admin {
 		return array(
 			'slug'          => $slug,
 			'name'          => $name,
+			'location'      => $location,
 			'start_at'      => $start->format( 'Y-m-d H:i:s' ),
 			'end_at'        => $end->format( 'Y-m-d H:i:s' ),
 			'all_day'       => $all_day ? 1 : 0,
@@ -684,6 +690,7 @@ class Presto_Admin {
 		$defaults = array(
 			'name'               => '',
 			'slug'               => '',
+			'location'           => '',
 			'auto_generate_slug' => true,
 			'start_date'         => current_time( 'Y-m-d' ),
 			'start_time'         => '09:00',
@@ -698,6 +705,7 @@ class Presto_Admin {
 			$defaults = array(
 				'name'               => $event['name'],
 				'slug'               => $event['slug'],
+				'location'           => $event['location'],
 				'auto_generate_slug' => false,
 				'start_date'         => substr( $event['start_at'], 0, 10 ),
 				'start_time'         => substr( $event['start_at'], 11, 5 ),
@@ -714,6 +722,7 @@ class Presto_Admin {
 
 			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
 			$defaults['slug']               = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
+			$defaults['location']           = isset( $raw['location'] ) ? sanitize_text_field( $raw['location'] ) : '';
 			$defaults['auto_generate_slug'] = ! empty( $raw['auto_generate_slug'] );
 			$defaults['start_date']         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
 			$defaults['start_time']         = isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '';

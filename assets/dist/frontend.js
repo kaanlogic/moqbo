@@ -11607,6 +11607,7 @@ var PrestoBundle = (() => {
       id: event.id,
       title: event.title,
       description: event.description,
+      location: event.location,
       calendarId: event.calendarId,
       options: event.options || { disableDND: true, disableResize: true },
       prestoModal: event.modal
@@ -11626,14 +11627,14 @@ var PrestoBundle = (() => {
       element.textContent = value || "";
     }
   }
-  function writeDescription(modal, value) {
-    const element = modal.querySelector('[data-presto-modal-field="description"]');
+  function writeOptionalText(modal, key, value) {
+    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
     if (!element) {
       return;
     }
-    const description = value ? String(value).trim() : "";
-    element.textContent = description;
-    element.hidden = !description;
+    const text = value ? String(value).trim() : "";
+    element.textContent = text;
+    element.hidden = !text;
   }
   function setCategorySwatch(modal, color) {
     const swatch = modal.querySelector('[data-presto-modal-field="categoryColor"]');
@@ -11700,7 +11701,8 @@ var PrestoBundle = (() => {
     writeText(modal, "categoryName", eventModal.categoryName);
     writeText(modal, "title", eventModal.title);
     writeText(modal, "time", formatEventTimeRange(eventModal));
-    writeDescription(modal, eventModal.description);
+    writeOptionalText(modal, "location", eventModal.location);
+    writeOptionalText(modal, "description", eventModal.description);
     setCategorySwatch(modal, eventModal.categoryColor);
     lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     activeModal = modal;

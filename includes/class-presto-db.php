@@ -85,6 +85,7 @@ class Presto_DB {
 		$events_sql = "CREATE TABLE {$events_table} (
 			name varchar(255) NOT NULL,
 			slug varchar(191) NOT NULL,
+			location varchar(255) NOT NULL DEFAULT '',
 			category_slug varchar(191) NOT NULL,
 			description text NULL,
 			all_day tinyint(1) NOT NULL DEFAULT 0,
@@ -123,7 +124,7 @@ class Presto_DB {
 		global $wpdb;
 
 		$events_table = self::events_table();
-		$expected     = array( 'name', 'slug', 'category_slug', 'description', 'all_day', 'start_at', 'end_at', 'created_at', 'updated_at' );
+		$expected     = array( 'name', 'slug', 'location', 'category_slug', 'description', 'all_day', 'start_at', 'end_at', 'created_at', 'updated_at' );
 		$columns      = $wpdb->get_col( 'DESCRIBE ' . $events_table, 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
 		if ( array_slice( $columns, 0, count( $expected ) ) === $expected ) {
@@ -138,7 +139,8 @@ class Presto_DB {
 			'ALTER TABLE ' . $events_table . '
 				MODIFY name varchar(255) NOT NULL FIRST,
 				MODIFY slug varchar(191) NOT NULL AFTER name,
-				MODIFY category_slug varchar(191) NOT NULL AFTER slug,
+				MODIFY location varchar(255) NOT NULL DEFAULT \'\' AFTER slug,
+				MODIFY category_slug varchar(191) NOT NULL AFTER location,
 				MODIFY description text NULL AFTER category_slug,
 				MODIFY all_day tinyint(1) NOT NULL DEFAULT 0 AFTER description,
 				MODIFY start_at datetime NOT NULL AFTER all_day,
@@ -397,7 +399,8 @@ class Presto_DB {
 
 		if ( ! empty( $args['search'] ) ) {
 			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
+			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
+			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
@@ -433,6 +436,7 @@ class Presto_DB {
 		$orderby_map = array(
 			'name'       => 'e.name',
 			'slug'       => 'e.slug',
+			'location'   => 'e.location',
 			'category'   => 'c.name',
 			'all_day'    => 'e.all_day',
 			'start'      => 'e.start_at',
@@ -451,7 +455,8 @@ class Presto_DB {
 
 		if ( '' !== $args['search'] ) {
 			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
+			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
+			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
@@ -487,6 +492,7 @@ class Presto_DB {
 			array(
 				'name'          => $data['name'],
 				'slug'          => $data['slug'],
+				'location'      => $data['location'],
 				'category_slug' => $data['category_slug'],
 				'description'   => $data['description'],
 				'all_day'       => (int) $data['all_day'],
@@ -495,7 +501,7 @@ class Presto_DB {
 				'created_at'    => $data['created_at'],
 				'updated_at'    => $data['updated_at'],
 			),
-			array( '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
 	}
 
@@ -514,6 +520,7 @@ class Presto_DB {
 			array(
 				'name'          => $data['name'],
 				'slug'          => $data['slug'],
+				'location'      => $data['location'],
 				'category_slug' => $data['category_slug'],
 				'description'   => $data['description'],
 				'all_day'       => (int) $data['all_day'],
@@ -522,7 +529,7 @@ class Presto_DB {
 				'updated_at'    => $data['updated_at'],
 			),
 			array( 'slug' => $old_slug ),
-			array( '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ),
 			array( '%s' )
 		);
 
