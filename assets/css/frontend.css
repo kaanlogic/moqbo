@@ -20,18 +20,25 @@
     cursor: pointer;
 }
 .sx__time-grid-event-title {
+    margin: 0 0 0.25rem 0;
     font-weight: 600;
+    line-height: 1.25;
+}
+.sx__time-grid-event-time {
+    line-height: 1.25;
+}
+.sx__time-grid-event-location {
     line-height: 1.25;
 }
 .sx__view-selection-item {
     border: none;
 }
 .sx__date-picker-popup {
-	max-height: 480px;
-	overflow: hidden;
+    max-height: 480px;
+    overflow: hidden;
 }
 .sx__event-modal-default {
-	overflow-x: hidden;
+    overflow-x: hidden;
     overflow-y: auto;
 }
 
