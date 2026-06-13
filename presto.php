@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Presto
- * Description: A very simple event calendar
- * Version: 0.1.0
+ * Plugin Name: Presto – Lightweight Calendar
+ * Description: Presto is a lightweight calendar plugin with no frills and unnecessary bloat.
+ * Version: 1.0.0
  * Author: kaanlogic
  * Requires at least: 6.5
  * Requires PHP: 7.4

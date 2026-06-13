@@ -211,6 +211,18 @@ function writeText(modal, key, value) {
     }
 }
 
+function writeDescription(modal, value) {
+    const element = modal.querySelector('[data-presto-modal-field="description"]');
+
+    if (!element) {
+        return;
+    }
+
+    const description = value ? String(value).trim() : "";
+    element.textContent = description;
+    element.hidden = !description;
+}
+
 function setCategorySwatch(modal, color) {
     const swatch = modal.querySelector('[data-presto-modal-field="categoryColor"]');
 
@@ -283,7 +295,7 @@ function positionEventPopover(modal, anchorRect) {
     modal.style.setProperty("--sx-event-modal-animation-start", animationStart);
 }
 
-function openEventPopover(modal, eventModal, messages, uiEvent) {
+function openEventPopover(modal, eventModal, uiEvent) {
     if (!modal || !eventModal) {
         return;
     }
@@ -291,7 +303,7 @@ function openEventPopover(modal, eventModal, messages, uiEvent) {
     writeText(modal, "categoryName", eventModal.categoryName);
     writeText(modal, "title", eventModal.title);
     writeText(modal, "time", formatEventTimeRange(eventModal));
-    writeText(modal, "description", eventModal.description || messages.noDescription);
+    writeDescription(modal, eventModal.description);
     setCategorySwatch(modal, eventModal.categoryColor);
 
     lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -382,7 +394,7 @@ function initInstance(instance) {
                     const clickedEvent = payload && payload.event ? payload.event : payload;
                     const eventModal = clickedEvent && clickedEvent.prestoModal ? clickedEvent.prestoModal : eventModals.get(String(clickedEvent && clickedEvent.id));
 
-                    openEventPopover(modal, eventModal, instance.i18n, uiEvent);
+                    openEventPopover(modal, eventModal, uiEvent);
                 },
                 onRender: ($app) => {
                     scheduleXApp = $app;

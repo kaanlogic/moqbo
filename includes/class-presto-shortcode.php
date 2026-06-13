@@ -132,8 +132,7 @@ class Presto_Shortcode {
 				'calendars'            => self::prepare_calendars(),
 			),
 			'i18n'        => array(
-				'noDescription' => __( 'No description provided.', 'presto' ),
-				'loadError'     => __( 'The calendar could not be loaded.', 'presto' ),
+				'loadError' => __( 'The calendar could not be loaded.', 'presto' ),
 			),
 		);
 	}
