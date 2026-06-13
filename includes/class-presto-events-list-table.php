@@ -2,7 +2,7 @@
 /**
  * Events list table.
  *
- * @package Plainday
+ * @package Presto
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,7 +16,7 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 /**
  * Native-style event list table.
  */
-class Plainday_Events_List_Table extends WP_List_Table {
+class Presto_Events_List_Table extends WP_List_Table {
 	/**
 	 * Initialize table.
 	 */
@@ -39,10 +39,10 @@ class Plainday_Events_List_Table extends WP_List_Table {
 		$search       = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$orderby      = isset( $_REQUEST['orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['orderby'] ) ) : 'start'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$order        = isset( $_REQUEST['order'] ) ? sanitize_key( wp_unslash( $_REQUEST['order'] ) ) : 'ASC'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$total_items  = Plainday_DB::count_events( array( 'search' => $search ) );
+		$total_items  = Presto_DB::count_events( array( 'search' => $search ) );
 
 		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns(), 'name' );
-		$this->items           = Plainday_DB::get_events(
+		$this->items           = Presto_DB::get_events(
 			array(
 				'search'  => $search,
 				'orderby' => $orderby,
@@ -69,15 +69,15 @@ class Plainday_Events_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'cb'          => '<input type="checkbox">',
-			'name'        => __( 'Name', 'plainday' ),
-			'slug'        => __( 'Slug', 'plainday' ),
-			'category'    => __( 'Event Category', 'plainday' ),
-			'description' => __( 'Description', 'plainday' ),
-			'all_day'     => __( 'All-day event', 'plainday' ),
-			'start_date'  => __( 'Start Date', 'plainday' ),
-			'start_time'  => __( 'Start Time', 'plainday' ),
-			'end_date'    => __( 'End Date', 'plainday' ),
-			'end_time'    => __( 'End Time', 'plainday' ),
+			'name'        => __( 'Name', 'presto' ),
+			'slug'        => __( 'Slug', 'presto' ),
+			'category'    => __( 'Event Category', 'presto' ),
+			'description' => __( 'Description', 'presto' ),
+			'all_day'     => __( 'All-day event', 'presto' ),
+			'start_date'  => __( 'Start Date', 'presto' ),
+			'start_time'  => __( 'Start Time', 'presto' ),
+			'end_date'    => __( 'End Date', 'presto' ),
+			'end_time'    => __( 'End Time', 'presto' ),
 		);
 	}
 
@@ -106,7 +106,7 @@ class Plainday_Events_List_Table extends WP_List_Table {
 	 */
 	protected function get_bulk_actions() {
 		return array(
-			'delete' => __( 'Delete', 'plainday' ),
+			'delete' => __( 'Delete', 'presto' ),
 		);
 	}
 
@@ -129,7 +129,7 @@ class Plainday_Events_List_Table extends WP_List_Table {
 	protected function column_name( $item ) {
 		$edit_url = add_query_arg(
 			array(
-				'page'   => 'plainday-add-event',
+				'page'   => 'presto-add-event',
 				'action' => 'edit',
 				'event'  => rawurlencode( $item['slug'] ),
 			),
@@ -139,18 +139,18 @@ class Plainday_Events_List_Table extends WP_List_Table {
 		$delete_url = wp_nonce_url(
 			add_query_arg(
 				array(
-					'page'   => 'plainday',
+					'page'   => 'presto',
 					'action' => 'delete',
 					'event'  => rawurlencode( $item['slug'] ),
 				),
 				admin_url( 'admin.php' )
 			),
-			'plainday_delete_event_' . $item['slug']
+			'presto_delete_event_' . $item['slug']
 		);
 
 		$actions = array(
-			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'plainday' ) ),
-			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'plainday' ) ),
+			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'presto' ) ),
+			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'presto' ) ),
 		);
 
 		return sprintf(
@@ -177,7 +177,7 @@ class Plainday_Events_List_Table extends WP_List_Table {
 			case 'description':
 				return esc_html( wp_trim_words( wp_strip_all_tags( $item['description'] ), 18 ) );
 			case 'all_day':
-				return (bool) $item['all_day'] ? esc_html__( 'Yes', 'plainday' ) : esc_html__( 'No', 'plainday' );
+				return (bool) $item['all_day'] ? esc_html__( 'Yes', 'presto' ) : esc_html__( 'No', 'presto' );
 			case 'start_date':
 				return esc_html( $this->format_event_date( $item['start_at'] ) );
 			case 'start_time':
@@ -227,6 +227,6 @@ class Plainday_Events_List_Table extends WP_List_Table {
 	 * Empty table text.
 	 */
 	public function no_items() {
-		esc_html_e( 'No events found.', 'plainday' );
+		esc_html_e( 'No events found.', 'presto' );
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * Database schema and persistence helpers.
  *
- * @package Plainday
+ * @package Presto
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Database access layer for Plainday.
+ * Database access layer for Presto.
  */
-class Plainday_DB {
+class Presto_DB {
 	/**
 	 * Activate the plugin on one or all sites.
 	 *
@@ -43,7 +43,7 @@ class Plainday_DB {
 	 * Run schema migrations when the stored DB version lags the plugin.
 	 */
 	public static function maybe_upgrade() {
-		if ( get_option( 'plainday_db_version' ) !== PLAINDAY_DB_VERSION ) {
+		if ( get_option( 'presto_db_version' ) !== PRESTO_DB_VERSION ) {
 			self::create_schema();
 		}
 	}
@@ -56,7 +56,7 @@ class Plainday_DB {
 	public static function events_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'plainday_events';
+		return $wpdb->prefix . 'presto_events';
 	}
 
 	/**
@@ -67,7 +67,7 @@ class Plainday_DB {
 	public static function categories_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'plainday_categories';
+		return $wpdb->prefix . 'presto_categories';
 	}
 
 	/**
@@ -113,11 +113,11 @@ class Plainday_DB {
 		dbDelta( $categories_sql );
 		self::reorder_events_columns();
 
-		update_option( 'plainday_db_version', PLAINDAY_DB_VERSION );
+		update_option( 'presto_db_version', PRESTO_DB_VERSION );
 	}
 
 	/**
-	 * Reorder existing event columns to match Plainday's admin field flow.
+	 * Reorder existing event columns to match Presto's admin field flow.
 	 */
 	private static function reorder_events_columns() {
 		global $wpdb;
@@ -157,7 +157,7 @@ class Plainday_DB {
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::events_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::categories_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
-		delete_option( 'plainday_db_version' );
+		delete_option( 'presto_db_version' );
 	}
 
 	/**

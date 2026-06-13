@@ -6,7 +6,7 @@
             return;
         }
 
-        form.querySelectorAll(".plainday-time-row").forEach(function (row) {
+        form.querySelectorAll(".presto-time-row").forEach(function (row) {
             row.hidden = checkbox.checked;
         });
     }
@@ -18,7 +18,7 @@
             return;
         }
 
-        var input = form.querySelector("#plainday-event-slug");
+        var input = form.querySelector("#presto-event-slug");
         var row = input ? input.closest("tr") : null;
 
         if (!row || !input) {
@@ -30,18 +30,18 @@
     }
 
     document.addEventListener("change", function (event) {
-        if (event.target && "plainday-all-day" === event.target.id) {
+        if (event.target && "presto-all-day" === event.target.id) {
             syncAllDayFields(event.target);
         }
 
-        if (event.target && "plainday-auto-generate-slug" === event.target.id) {
+        if (event.target && "presto-auto-generate-slug" === event.target.id) {
             syncEventSlugField(event.target);
         }
     });
 
     document.addEventListener("DOMContentLoaded", function () {
-        var checkbox = document.getElementById("plainday-all-day");
-        var autoSlugCheckbox = document.getElementById("plainday-auto-generate-slug");
+        var checkbox = document.getElementById("presto-all-day");
+        var autoSlugCheckbox = document.getElementById("presto-auto-generate-slug");
 
         if (checkbox) {
             syncAllDayFields(checkbox);
@@ -53,6 +53,6 @@
     });
 
     $(function () {
-        $(".plainday-color-field").wpColorPicker();
+        $(".presto-color-field").wpColorPicker();
     });
 })(jQuery);

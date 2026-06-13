@@ -2,7 +2,7 @@
 /**
  * Admin screens and form handling.
  *
- * @package Plainday
+ * @package Presto
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Plainday admin UI.
+ * Presto admin UI.
  */
-class Plainday_Admin {
+class Presto_Admin {
 	/**
 	 * Event form validation errors collected before the admin page renders.
 	 *
@@ -42,11 +42,11 @@ class Plainday_Admin {
 	public static function handle_admin_requests() {
 		$page = isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		if ( 'plainday' === $page ) {
+		if ( 'presto' === $page ) {
 			self::handle_event_delete_request();
 		}
 
-		if ( 'plainday-add-event' === $page && self::is_post_request( 'plainday_event_nonce' ) ) {
+		if ( 'presto-add-event' === $page && self::is_post_request( 'presto_event_nonce' ) ) {
 			$result = self::handle_event_form_submission();
 
 			if ( is_wp_error( $result ) ) {
@@ -54,10 +54,10 @@ class Plainday_Admin {
 			}
 		}
 
-		if ( 'plainday-categories' === $page ) {
+		if ( 'presto-categories' === $page ) {
 			self::handle_category_delete_request();
 
-			if ( self::is_post_request( 'plainday_category_nonce' ) ) {
+			if ( self::is_post_request( 'presto_category_nonce' ) ) {
 				$result = self::handle_category_form_submission();
 
 				if ( is_wp_error( $result ) ) {
@@ -72,39 +72,39 @@ class Plainday_Admin {
 	 */
 	public static function register_menus() {
 		add_menu_page(
-			__( 'Plainday', 'plainday' ),
-			__( 'Plainday', 'plainday' ),
+			__( 'Presto', 'presto' ),
+			__( 'Presto', 'presto' ),
 			'manage_options',
-			'plainday',
+			'presto',
 			array( __CLASS__, 'render_events_page' ),
 			'dashicons-calendar-alt',
 			26
 		);
 
 		add_submenu_page(
-			'plainday',
-			__( 'All Events', 'plainday' ),
-			__( 'All Events', 'plainday' ),
+			'presto',
+			__( 'All Events', 'presto' ),
+			__( 'All Events', 'presto' ),
 			'manage_options',
-			'plainday',
+			'presto',
 			array( __CLASS__, 'render_events_page' )
 		);
 
 		add_submenu_page(
-			'plainday',
-			__( 'Add Event', 'plainday' ),
-			__( 'Add Event', 'plainday' ),
+			'presto',
+			__( 'Add Event', 'presto' ),
+			__( 'Add Event', 'presto' ),
 			'manage_options',
-			'plainday-add-event',
+			'presto-add-event',
 			array( __CLASS__, 'render_event_form_page' )
 		);
 
 		add_submenu_page(
-			'plainday',
-			__( 'Categories', 'plainday' ),
-			__( 'Categories', 'plainday' ),
+			'presto',
+			__( 'Categories', 'presto' ),
+			__( 'Categories', 'presto' ),
 			'manage_options',
-			'plainday-categories',
+			'presto-categories',
 			array( __CLASS__, 'render_categories_page' )
 		);
 	}
@@ -115,22 +115,22 @@ class Plainday_Admin {
 	 * @param string $hook Current admin page hook.
 	 */
 	public static function enqueue_assets( $hook ) {
-		if ( false === strpos( $hook, 'plainday' ) ) {
+		if ( false === strpos( $hook, 'presto' ) ) {
 			return;
 		}
 
 		wp_enqueue_style(
-			'plainday-admin',
-			PLAINDAY_URL . 'assets/css/admin.css',
+			'presto-admin',
+			PRESTO_URL . 'assets/css/admin.css',
 			array( 'wp-color-picker' ),
-			self::asset_version( PLAINDAY_DIR . 'assets/css/admin.css' )
+			self::asset_version( PRESTO_DIR . 'assets/css/admin.css' )
 		);
 
 		wp_enqueue_script(
-			'plainday-admin',
-			PLAINDAY_URL . 'assets/js/admin.js',
+			'presto-admin',
+			PRESTO_URL . 'assets/js/admin.js',
 			array( 'jquery', 'wp-color-picker' ),
-			self::asset_version( PLAINDAY_DIR . 'assets/js/admin.js' ),
+			self::asset_version( PRESTO_DIR . 'assets/js/admin.js' ),
 			true
 		);
 	}
@@ -142,20 +142,20 @@ class Plainday_Admin {
 		self::require_capability();
 		self::load_list_table_classes();
 
-		$list_table = new Plainday_Events_List_Table();
+		$list_table = new Presto_Events_List_Table();
 		$list_table->prepare_items();
 		?>
 		<div class="wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'All Events', 'plainday' ); ?></h1>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=plainday-add-event' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add Event', 'plainday' ); ?></a>
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'All Events', 'presto' ); ?></h1>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=presto-add-event' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add Event', 'presto' ); ?></a>
 			<hr class="wp-header-end">
 
 			<?php self::print_notices(); ?>
 
 			<form method="post">
-				<input type="hidden" name="page" value="plainday">
+				<input type="hidden" name="page" value="presto">
 				<?php wp_nonce_field( 'bulk-events' ); ?>
-				<?php $list_table->search_box( __( 'Search Events', 'plainday' ), 'plainday-events' ); ?>
+				<?php $list_table->search_box( __( 'Search Events', 'presto' ), 'presto-events' ); ?>
 				<?php $list_table->display(); ?>
 			</form>
 		</div>
@@ -171,22 +171,22 @@ class Plainday_Admin {
 		$posted_original_slug = self::posted_original_slug();
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'event' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'event' ) : '' );
-		$event         = $editing ? Plainday_DB::get_event( $original_slug ) : null;
+		$event         = $editing ? Presto_DB::get_event( $original_slug ) : null;
 		$errors        = self::$event_errors;
 
 		if ( $editing && ! $event ) {
-			$errors[] = __( 'The requested event could not be found.', 'plainday' );
+			$errors[] = __( 'The requested event could not be found.', 'presto' );
 			$editing  = false;
 		}
 
 		$values     = self::get_event_form_values( $event );
-		$categories = Plainday_DB::get_categories(
+		$categories = Presto_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
 			)
 		);
-		$title      = $editing ? __( 'Edit Event', 'plainday' ) : __( 'Add Event', 'plainday' );
+		$title      = $editing ? __( 'Edit Event', 'presto' ) : __( 'Add Event', 'presto' );
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html( $title ); ?></h1>
@@ -199,8 +199,8 @@ class Plainday_Admin {
 						echo wp_kses_post(
 							sprintf(
 								/* translators: %s: link to categories page. */
-								__( 'Create at least one event category before adding events. <a href="%s">Add a category</a>.', 'plainday' ),
-								esc_url( admin_url( 'admin.php?page=plainday-categories' ) )
+								__( 'Create at least one event category before adding events. <a href="%s">Add a category</a>.', 'presto' ),
+								esc_url( admin_url( 'admin.php?page=presto-categories' ) )
 							)
 						);
 						?>
@@ -208,36 +208,36 @@ class Plainday_Admin {
 				</div>
 			<?php endif; ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=plainday-add-event' ) ); ?>">
-				<?php wp_nonce_field( 'plainday_save_event', 'plainday_event_nonce' ); ?>
-				<input type="hidden" name="plainday_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=presto-add-event' ) ); ?>">
+				<?php wp_nonce_field( 'presto_save_event', 'presto_event_nonce' ); ?>
+				<input type="hidden" name="presto_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
 				<table class="form-table" role="presentation">
 					<tbody>
 						<tr>
-							<th scope="row"><label for="plainday-event-name"><?php esc_html_e( 'Name', 'plainday' ); ?></label></th>
-							<td><input name="name" type="text" id="plainday-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
+							<th scope="row"><label for="presto-event-name"><?php esc_html_e( 'Name', 'presto' ); ?></label></th>
+							<td><input name="name" type="text" id="presto-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
 						</tr>
 						<tr>
-							<th scope="row"><?php esc_html_e( 'Slug Generation', 'plainday' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'Slug Generation', 'presto' ); ?></th>
 							<td>
-								<label for="plainday-auto-generate-slug">
-									<input name="auto_generate_slug" type="checkbox" id="plainday-auto-generate-slug" value="1" <?php checked( $values['auto_generate_slug'] ); ?>>
-									<?php esc_html_e( 'Auto generate a slug based on the event name', 'plainday' ); ?>
+								<label for="presto-auto-generate-slug">
+									<input name="auto_generate_slug" type="checkbox" id="presto-auto-generate-slug" value="1" <?php checked( $values['auto_generate_slug'] ); ?>>
+									<?php esc_html_e( 'Auto generate a slug based on the event name', 'presto' ); ?>
 								</label>
 							</td>
 						</tr>
 						<tr <?php if ( $values['auto_generate_slug'] ) : ?>hidden<?php endif; ?>>
-							<th scope="row"><label for="plainday-event-slug"><?php esc_html_e( 'Slug', 'plainday' ); ?></label></th>
+							<th scope="row"><label for="presto-event-slug"><?php esc_html_e( 'Slug', 'presto' ); ?></label></th>
 							<td>
-								<input name="slug" type="text" id="plainday-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
+								<input name="slug" type="text" id="presto-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="plainday-category"><?php esc_html_e( 'Event Category', 'plainday' ); ?></label></th>
+							<th scope="row"><label for="presto-category"><?php esc_html_e( 'Event Category', 'presto' ); ?></label></th>
 							<td>
-								<select name="category_slug" id="plainday-category" required <?php disabled( empty( $categories ) ); ?>>
-									<option value=""><?php esc_html_e( 'Select category', 'plainday' ); ?></option>
+								<select name="category_slug" id="presto-category" required <?php disabled( empty( $categories ) ); ?>>
+									<option value=""><?php esc_html_e( 'Select category', 'presto' ); ?></option>
 									<?php foreach ( $categories as $category ) : ?>
 										<option value="<?php echo esc_attr( $category['slug'] ); ?>" <?php selected( $values['category_slug'], $category['slug'] ); ?>><?php echo esc_html( $category['name'] ); ?></option>
 									<?php endforeach; ?>
@@ -245,38 +245,38 @@ class Plainday_Admin {
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="plainday-description"><?php esc_html_e( 'Description', 'plainday' ); ?></label></th>
-							<td><textarea name="description" id="plainday-description" class="large-text" rows="5"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
+							<th scope="row"><label for="presto-description"><?php esc_html_e( 'Description', 'presto' ); ?></label></th>
+							<td><textarea name="description" id="presto-description" class="large-text" rows="5"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
 						</tr>
 						<tr>
-							<th scope="row"><?php esc_html_e( 'All-day event', 'plainday' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'All-day event', 'presto' ); ?></th>
 							<td>
-								<label for="plainday-all-day">
-									<input name="all_day" type="checkbox" id="plainday-all-day" value="1" <?php checked( $values['all_day'] ); ?>>
-									<?php esc_html_e( 'This event spans full calendar days.', 'plainday' ); ?>
+								<label for="presto-all-day">
+									<input name="all_day" type="checkbox" id="presto-all-day" value="1" <?php checked( $values['all_day'] ); ?>>
+									<?php esc_html_e( 'This event spans full calendar days.', 'presto' ); ?>
 								</label>
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="plainday-start-date"><?php esc_html_e( 'Start Date', 'plainday' ); ?></label></th>
-							<td><input name="start_date" type="date" id="plainday-start-date" value="<?php echo esc_attr( $values['start_date'] ); ?>" required></td>
+							<th scope="row"><label for="presto-start-date"><?php esc_html_e( 'Start Date', 'presto' ); ?></label></th>
+							<td><input name="start_date" type="date" id="presto-start-date" value="<?php echo esc_attr( $values['start_date'] ); ?>" required></td>
 						</tr>
-						<tr class="plainday-time-row">
-							<th scope="row"><label for="plainday-start-time"><?php esc_html_e( 'Start Time', 'plainday' ); ?></label></th>
-							<td><input name="start_time" type="time" id="plainday-start-time" value="<?php echo esc_attr( $values['start_time'] ); ?>"></td>
+						<tr class="presto-time-row">
+							<th scope="row"><label for="presto-start-time"><?php esc_html_e( 'Start Time', 'presto' ); ?></label></th>
+							<td><input name="start_time" type="time" id="presto-start-time" value="<?php echo esc_attr( $values['start_time'] ); ?>"></td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="plainday-end-date"><?php esc_html_e( 'End Date', 'plainday' ); ?></label></th>
-							<td><input name="end_date" type="date" id="plainday-end-date" value="<?php echo esc_attr( $values['end_date'] ); ?>" required></td>
+							<th scope="row"><label for="presto-end-date"><?php esc_html_e( 'End Date', 'presto' ); ?></label></th>
+							<td><input name="end_date" type="date" id="presto-end-date" value="<?php echo esc_attr( $values['end_date'] ); ?>" required></td>
 						</tr>
-						<tr class="plainday-time-row">
-							<th scope="row"><label for="plainday-end-time"><?php esc_html_e( 'End Time', 'plainday' ); ?></label></th>
-							<td><input name="end_time" type="time" id="plainday-end-time" value="<?php echo esc_attr( $values['end_time'] ); ?>"></td>
+						<tr class="presto-time-row">
+							<th scope="row"><label for="presto-end-time"><?php esc_html_e( 'End Time', 'presto' ); ?></label></th>
+							<td><input name="end_time" type="time" id="presto-end-time" value="<?php echo esc_attr( $values['end_time'] ); ?>"></td>
 						</tr>
 					</tbody>
 				</table>
 
-				<?php submit_button( $editing ? __( 'Update Event', 'plainday' ) : __( 'Add Event', 'plainday' ) ); ?>
+				<?php submit_button( $editing ? __( 'Update Event', 'presto' ) : __( 'Add Event', 'presto' ) ); ?>
 			</form>
 		</div>
 		<?php
@@ -292,56 +292,56 @@ class Plainday_Admin {
 		$posted_original_slug = self::posted_original_slug();
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'category' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'category' ) : '' );
-		$category      = $editing ? Plainday_DB::get_category( $original_slug ) : null;
+		$category      = $editing ? Presto_DB::get_category( $original_slug ) : null;
 		$errors        = self::$category_errors;
 
 		if ( $editing && ! $category ) {
-			$errors[] = __( 'The requested category could not be found.', 'plainday' );
+			$errors[] = __( 'The requested category could not be found.', 'presto' );
 			$editing  = false;
 		}
 
 		$values     = self::get_category_form_values( $category );
-		$list_table = new Plainday_Categories_List_Table();
+		$list_table = new Presto_Categories_List_Table();
 		$list_table->prepare_items();
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Categories', 'plainday' ); ?></h1>
+			<h1><?php esc_html_e( 'Categories', 'presto' ); ?></h1>
 			<?php self::print_notices(); ?>
 			<?php self::print_errors( $errors ); ?>
 
 			<form class="search-form wp-clearfix" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
-				<input type="hidden" name="page" value="plainday-categories">
-				<?php $list_table->search_box( __( 'Search Categories', 'plainday' ), 'plainday-categories' ); ?>
+				<input type="hidden" name="page" value="presto-categories">
+				<?php $list_table->search_box( __( 'Search Categories', 'presto' ), 'presto-categories' ); ?>
 			</form>
 
-			<div id="col-container" class="wp-clearfix plainday-categories-layout">
+			<div id="col-container" class="wp-clearfix presto-categories-layout">
 				<div id="col-left">
 					<div class="col-wrap form-wrap">
-						<h2><?php echo esc_html( $editing ? __( 'Edit Category', 'plainday' ) : __( 'Add Category', 'plainday' ) ); ?></h2>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=plainday-categories' ) ); ?>">
-							<?php wp_nonce_field( 'plainday_save_category', 'plainday_category_nonce' ); ?>
-							<input type="hidden" name="plainday_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
+						<h2><?php echo esc_html( $editing ? __( 'Edit Category', 'presto' ) : __( 'Add Category', 'presto' ) ); ?></h2>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=presto-categories' ) ); ?>">
+							<?php wp_nonce_field( 'presto_save_category', 'presto_category_nonce' ); ?>
+							<input type="hidden" name="presto_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
 							<div class="form-field form-required">
-								<label for="plainday-category-name"><?php esc_html_e( 'Name', 'plainday' ); ?></label>
-								<input name="name" type="text" id="plainday-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" required>
+								<label for="presto-category-name"><?php esc_html_e( 'Name', 'presto' ); ?></label>
+								<input name="name" type="text" id="presto-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" required>
 							</div>
 
 							<div class="form-field">
-								<label for="plainday-category-slug"><?php esc_html_e( 'Slug', 'plainday' ); ?></label>
-								<input name="slug" type="text" id="plainday-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>">
-								<p><?php esc_html_e( 'Leave blank to generate from the category name.', 'plainday' ); ?></p>
+								<label for="presto-category-slug"><?php esc_html_e( 'Slug', 'presto' ); ?></label>
+								<input name="slug" type="text" id="presto-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>">
+								<p><?php esc_html_e( 'Leave blank to generate from the category name.', 'presto' ); ?></p>
 							</div>
 
 							<div class="form-field form-required">
-								<label for="plainday-category-color"><?php esc_html_e( 'Color', 'plainday' ); ?></label>
-								<input name="color" type="text" id="plainday-category-color" class="plainday-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" data-default-color="#2271b1" aria-required="true">
+								<label for="presto-category-color"><?php esc_html_e( 'Color', 'presto' ); ?></label>
+								<input name="color" type="text" id="presto-category-color" class="presto-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" data-default-color="#2271b1" aria-required="true">
 							</div>
 
-							<?php submit_button( $editing ? __( 'Update Category', 'plainday' ) : __( 'Add Category', 'plainday' ), 'primary', 'submit', false ); ?>
+							<?php submit_button( $editing ? __( 'Update Category', 'presto' ) : __( 'Add Category', 'presto' ), 'primary', 'submit', false ); ?>
 
 							<?php if ( $editing ) : ?>
-								<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=plainday-categories' ) ); ?>"><?php esc_html_e( 'Cancel', 'plainday' ); ?></a>
+								<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=presto-categories' ) ); ?>"><?php esc_html_e( 'Cancel', 'presto' ); ?></a>
 							<?php endif; ?>
 						</form>
 					</div>
@@ -350,7 +350,7 @@ class Plainday_Admin {
 				<div id="col-right">
 					<div class="col-wrap">
 						<form method="post">
-							<input type="hidden" name="page" value="plainday-categories">
+							<input type="hidden" name="page" value="presto-categories">
 							<?php wp_nonce_field( 'bulk-categories' ); ?>
 							<?php $list_table->display(); ?>
 						</form>
@@ -388,8 +388,8 @@ class Plainday_Admin {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 		}
 
-		require_once PLAINDAY_DIR . 'includes/class-plainday-events-list-table.php';
-		require_once PLAINDAY_DIR . 'includes/class-plainday-categories-list-table.php';
+		require_once PRESTO_DIR . 'includes/class-presto-events-list-table.php';
+		require_once PRESTO_DIR . 'includes/class-presto-categories-list-table.php';
 	}
 
 	/**
@@ -408,21 +408,21 @@ class Plainday_Admin {
 		$slugs      = array_filter( array_map( 'sanitize_title', (array) $raw_events ) );
 
 		if ( empty( $slugs ) ) {
-			self::redirect_to( 'plainday', array( 'plainday_notice' => 'no_selection' ) );
+			self::redirect_to( 'presto', array( 'presto_notice' => 'no_selection' ) );
 		}
 
 		if ( 1 === count( $slugs ) && isset( $_GET['event'] ) ) {
-			check_admin_referer( 'plainday_delete_event_' . reset( $slugs ) );
+			check_admin_referer( 'presto_delete_event_' . reset( $slugs ) );
 		} else {
 			check_admin_referer( 'bulk-events' );
 		}
 
-		$deleted = Plainday_DB::delete_events( $slugs );
+		$deleted = Presto_DB::delete_events( $slugs );
 
 		self::redirect_to(
-			'plainday',
+			'presto',
 			array(
-				'plainday_notice' => 'events_deleted',
+				'presto_notice' => 'events_deleted',
 				'deleted'         => $deleted,
 			)
 		);
@@ -444,21 +444,21 @@ class Plainday_Admin {
 		$slugs          = array_filter( array_map( 'sanitize_title', (array) $raw_categories ) );
 
 		if ( empty( $slugs ) ) {
-			self::redirect_to( 'plainday-categories', array( 'plainday_notice' => 'no_selection' ) );
+			self::redirect_to( 'presto-categories', array( 'presto_notice' => 'no_selection' ) );
 		}
 
 		if ( 1 === count( $slugs ) && isset( $_GET['category'] ) ) {
-			check_admin_referer( 'plainday_delete_category_' . reset( $slugs ) );
+			check_admin_referer( 'presto_delete_category_' . reset( $slugs ) );
 		} else {
 			check_admin_referer( 'bulk-categories' );
 		}
 
-		$result = Plainday_DB::delete_categories( $slugs );
+		$result = Presto_DB::delete_categories( $slugs );
 
 		self::redirect_to(
-			'plainday-categories',
+			'presto-categories',
 			array(
-				'plainday_notice' => 'categories_deleted',
+				'presto_notice' => 'categories_deleted',
 				'deleted'         => count( $result['deleted'] ),
 				'blocked'         => count( $result['blocked'] ),
 			)
@@ -472,14 +472,14 @@ class Plainday_Admin {
 	 */
 	private static function handle_event_form_submission() {
 		self::require_capability();
-		check_admin_referer( 'plainday_save_event', 'plainday_event_nonce' );
+		check_admin_referer( 'presto_save_event', 'presto_event_nonce' );
 
-		$original_slug = isset( $_POST['plainday_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['plainday_original_slug'] ) ) : '';
+		$original_slug = isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : '';
 		$editing       = '' !== $original_slug;
-		$existing      = $editing ? Plainday_DB::get_event( $original_slug ) : null;
+		$existing      = $editing ? Presto_DB::get_event( $original_slug ) : null;
 
 		if ( $editing && ! $existing ) {
-			return new WP_Error( 'plainday_missing_event', __( 'The event you tried to update no longer exists.', 'plainday' ) );
+			return new WP_Error( 'presto_missing_event', __( 'The event you tried to update no longer exists.', 'presto' ) );
 		}
 
 		$validated = self::validate_event_submission( $original_slug );
@@ -492,18 +492,18 @@ class Plainday_Admin {
 
 		if ( $editing ) {
 			$validated['updated_at'] = $now;
-			$success                 = Plainday_DB::update_event( $original_slug, $validated );
+			$success                 = Presto_DB::update_event( $original_slug, $validated );
 		} else {
 			$validated['created_at'] = $now;
 			$validated['updated_at'] = $now;
-			$success                 = Plainday_DB::insert_event( $validated );
+			$success                 = Presto_DB::insert_event( $validated );
 		}
 
 		if ( ! $success ) {
-			return new WP_Error( 'plainday_save_event_failed', __( 'The event could not be saved.', 'plainday' ) );
+			return new WP_Error( 'presto_save_event_failed', __( 'The event could not be saved.', 'presto' ) );
 		}
 
-		self::redirect_to( 'plainday', array( 'plainday_notice' => 'event_saved' ) );
+		self::redirect_to( 'presto', array( 'presto_notice' => 'event_saved' ) );
 	}
 
 	/**
@@ -513,14 +513,14 @@ class Plainday_Admin {
 	 */
 	private static function handle_category_form_submission() {
 		self::require_capability();
-		check_admin_referer( 'plainday_save_category', 'plainday_category_nonce' );
+		check_admin_referer( 'presto_save_category', 'presto_category_nonce' );
 
-		$original_slug = isset( $_POST['plainday_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['plainday_original_slug'] ) ) : '';
+		$original_slug = isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : '';
 		$editing       = '' !== $original_slug;
-		$existing      = $editing ? Plainday_DB::get_category( $original_slug ) : null;
+		$existing      = $editing ? Presto_DB::get_category( $original_slug ) : null;
 
 		if ( $editing && ! $existing ) {
-			return new WP_Error( 'plainday_missing_category', __( 'The category you tried to update no longer exists.', 'plainday' ) );
+			return new WP_Error( 'presto_missing_category', __( 'The category you tried to update no longer exists.', 'presto' ) );
 		}
 
 		$validated = self::validate_category_submission( $original_slug );
@@ -533,18 +533,18 @@ class Plainday_Admin {
 
 		if ( $editing ) {
 			$validated['updated_at'] = $now;
-			$success                 = Plainday_DB::update_category( $original_slug, $validated );
+			$success                 = Presto_DB::update_category( $original_slug, $validated );
 		} else {
 			$validated['created_at'] = $now;
 			$validated['updated_at'] = $now;
-			$success                 = Plainday_DB::insert_category( $validated );
+			$success                 = Presto_DB::insert_category( $validated );
 		}
 
 		if ( ! $success ) {
-			return new WP_Error( 'plainday_save_category_failed', __( 'The category could not be saved.', 'plainday' ) );
+			return new WP_Error( 'presto_save_category_failed', __( 'The category could not be saved.', 'presto' ) );
 		}
 
-		self::redirect_to( 'plainday-categories', array( 'plainday_notice' => 'category_saved' ) );
+		self::redirect_to( 'presto-categories', array( 'presto_notice' => 'category_saved' ) );
 	}
 
 	/**
@@ -563,27 +563,27 @@ class Plainday_Admin {
 		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : ( isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '' );
 
 		if ( '' === $name ) {
-			$errors->add( 'missing_name', __( 'Event name is required.', 'plainday' ) );
+			$errors->add( 'missing_name', __( 'Event name is required.', 'presto' ) );
 		}
 
 		if ( '' === $slug ) {
 			if ( $auto_generate_slug ) {
-				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'plainday' ) );
+				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'presto' ) );
 			} else {
-				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'plainday' ) );
+				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'presto' ) );
 			}
 		}
 
-		$duplicate = '' !== $slug ? Plainday_DB::get_event( $slug ) : null;
+		$duplicate = '' !== $slug ? Presto_DB::get_event( $slug ) : null;
 
 		if ( $duplicate && $slug !== $original_slug ) {
-			$errors->add( 'duplicate_slug', __( 'An event with this slug already exists.', 'plainday' ) );
+			$errors->add( 'duplicate_slug', __( 'An event with this slug already exists.', 'presto' ) );
 		}
 
 		$category_slug = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
 
-		if ( '' === $category_slug || ! Plainday_DB::get_category( $category_slug ) ) {
-			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'plainday' ) );
+		if ( '' === $category_slug || ! Presto_DB::get_category( $category_slug ) ) {
+			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'presto' ) );
 		}
 
 		$all_day    = ! empty( $raw['all_day'] );
@@ -591,8 +591,8 @@ class Plainday_Admin {
 		$start_time = $all_day ? '00:00' : self::default_time( isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '', '09:00' );
 		$end_time   = $all_day ? '00:00' : self::default_time( isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '', '10:00' );
 
-		$start = self::validate_local_datetime( $start_date, $start_time, __( 'Start', 'plainday' ) );
-		$end   = self::validate_local_datetime( $end_date, $end_time, __( 'End', 'plainday' ) );
+		$start = self::validate_local_datetime( $start_date, $start_time, __( 'Start', 'presto' ) );
+		$end   = self::validate_local_datetime( $end_date, $end_time, __( 'End', 'presto' ) );
 
 		if ( is_wp_error( $start ) ) {
 			$errors->merge_from( $start );
@@ -604,11 +604,11 @@ class Plainday_Admin {
 
 		if ( ! is_wp_error( $start ) && ! is_wp_error( $end ) ) {
 			if ( $all_day && $end < $start ) {
-				$errors->add( 'end_before_start', __( 'All-day event end date cannot be earlier than the start date.', 'plainday' ) );
+				$errors->add( 'end_before_start', __( 'All-day event end date cannot be earlier than the start date.', 'presto' ) );
 			}
 
 			if ( ! $all_day && $end <= $start ) {
-				$errors->add( 'end_before_start', __( 'Timed events must end after they start.', 'plainday' ) );
+				$errors->add( 'end_before_start', __( 'Timed events must end after they start.', 'presto' ) );
 			}
 		}
 
@@ -642,7 +642,7 @@ class Plainday_Admin {
 		$color = isset( $raw['color'] ) ? sanitize_hex_color( $raw['color'] ) : '';
 
 		if ( '' === $name ) {
-			$errors->add( 'missing_name', __( 'Category name is required.', 'plainday' ) );
+			$errors->add( 'missing_name', __( 'Category name is required.', 'presto' ) );
 		}
 
 		if ( '' === $slug ) {
@@ -650,17 +650,17 @@ class Plainday_Admin {
 		}
 
 		if ( '' === $slug ) {
-			$errors->add( 'missing_slug', __( 'Category slug could not be generated. Enter a slug manually.', 'plainday' ) );
+			$errors->add( 'missing_slug', __( 'Category slug could not be generated. Enter a slug manually.', 'presto' ) );
 		}
 
-		$duplicate = '' !== $slug ? Plainday_DB::get_category( $slug ) : null;
+		$duplicate = '' !== $slug ? Presto_DB::get_category( $slug ) : null;
 
 		if ( $duplicate && $slug !== $original_slug ) {
-			$errors->add( 'duplicate_slug', __( 'A category with this slug already exists.', 'plainday' ) );
+			$errors->add( 'duplicate_slug', __( 'A category with this slug already exists.', 'presto' ) );
 		}
 
 		if ( ! $color || ! preg_match( '/^#[0-9A-Fa-f]{6}$/', $color ) ) {
-			$errors->add( 'invalid_color', __( 'Choose a valid hex color.', 'plainday' ) );
+			$errors->add( 'invalid_color', __( 'Choose a valid hex color.', 'presto' ) );
 		}
 
 		if ( $errors->has_errors() ) {
@@ -709,7 +709,7 @@ class Plainday_Admin {
 			);
 		}
 
-		if ( self::is_post_request( 'plainday_event_nonce' ) ) {
+		if ( self::is_post_request( 'presto_event_nonce' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -748,7 +748,7 @@ class Plainday_Admin {
 			);
 		}
 
-		if ( self::is_post_request( 'plainday_category_nonce' ) ) {
+		if ( self::is_post_request( 'presto_category_nonce' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -776,7 +776,7 @@ class Plainday_Admin {
 				'invalid_date',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date must use YYYY-MM-DD format.', 'plainday' ),
+					__( '%s date must use YYYY-MM-DD format.', 'presto' ),
 					$label
 				)
 			);
@@ -787,7 +787,7 @@ class Plainday_Admin {
 				'invalid_time',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s time must use HH:MM 24-hour format.', 'plainday' ),
+					__( '%s time must use HH:MM 24-hour format.', 'presto' ),
 					$label
 				)
 			);
@@ -806,7 +806,7 @@ class Plainday_Admin {
 				'invalid_datetime',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date/time is not valid in the site timezone.', 'plainday' ),
+					__( '%s date/time is not valid in the site timezone.', 'presto' ),
 					$label
 				)
 			);
@@ -904,7 +904,7 @@ class Plainday_Admin {
 	 * @return string
 	 */
 	private static function posted_original_slug() {
-		return isset( $_POST['plainday_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['plainday_original_slug'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		return isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 	}
 
 	/**
@@ -918,16 +918,16 @@ class Plainday_Admin {
 	}
 
 	/**
-	 * Ensure the current user can manage Plainday.
+	 * Ensure the current user can manage Presto.
 	 */
 	private static function require_capability() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage Plainday.', 'plainday' ) );
+			wp_die( esc_html__( 'You do not have permission to manage Presto.', 'presto' ) );
 		}
 	}
 
 	/**
-	 * Redirect back to a Plainday admin page.
+	 * Redirect back to a Presto admin page.
 	 *
 	 * @param string $page Admin page slug.
 	 * @param array  $args Query args.
@@ -943,7 +943,7 @@ class Plainday_Admin {
 	 * Print redirect notices.
 	 */
 	private static function print_notices() {
-		$notice = isset( $_GET['plainday_notice'] ) ? sanitize_key( wp_unslash( $_GET['plainday_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$notice = isset( $_GET['presto_notice'] ) ? sanitize_key( wp_unslash( $_GET['presto_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $notice ) {
 			return;
@@ -954,16 +954,16 @@ class Plainday_Admin {
 
 		switch ( $notice ) {
 			case 'event_saved':
-				$message = __( 'Event saved.', 'plainday' );
+				$message = __( 'Event saved.', 'presto' );
 				break;
 			case 'category_saved':
-				$message = __( 'Category saved.', 'plainday' );
+				$message = __( 'Category saved.', 'presto' );
 				break;
 			case 'events_deleted':
 				$deleted = isset( $_GET['deleted'] ) ? absint( $_GET['deleted'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				$message = sprintf(
 					/* translators: %d: deleted event count. */
-					_n( '%d event deleted.', '%d events deleted.', $deleted, 'plainday' ),
+					_n( '%d event deleted.', '%d events deleted.', $deleted, 'presto' ),
 					$deleted
 				);
 				break;
@@ -973,14 +973,14 @@ class Plainday_Admin {
 				$type    = $blocked > 0 ? 'warning' : 'success';
 				$message = sprintf(
 					/* translators: 1: deleted category count, 2: blocked category count. */
-					__( '%1$d categories deleted. %2$d categories were not deleted because they still have events.', 'plainday' ),
+					__( '%1$d categories deleted. %2$d categories were not deleted because they still have events.', 'presto' ),
 					$deleted,
 					$blocked
 				);
 				break;
 			case 'no_selection':
 				$type    = 'warning';
-				$message = __( 'Select at least one item first.', 'plainday' );
+				$message = __( 'Select at least one item first.', 'presto' );
 				break;
 		}
 
@@ -1007,6 +1007,6 @@ class Plainday_Admin {
 	 * @return string
 	 */
 	private static function asset_version( $path ) {
-		return file_exists( $path ) ? (string) filemtime( $path ) : PLAINDAY_VERSION;
+		return file_exists( $path ) ? (string) filemtime( $path ) : PRESTO_VERSION;
 	}
 }

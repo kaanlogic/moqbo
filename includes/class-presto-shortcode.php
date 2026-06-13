@@ -2,7 +2,7 @@
 /**
  * Frontend shortcode and Schedule-X data preparation.
  *
- * @package Plainday
+ * @package Presto
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,14 +10,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Plainday shortcode renderer.
+ * Presto shortcode renderer.
  */
-class Plainday_Shortcode {
+class Presto_Shortcode {
 	/**
 	 * Register the shortcode.
 	 */
 	public static function register() {
-		add_shortcode( 'plainday', array( __CLASS__, 'render' ) );
+		add_shortcode( 'presto', array( __CLASS__, 'render' ) );
 	}
 
 	/**
@@ -26,7 +26,7 @@ class Plainday_Shortcode {
 	public static function maybe_enqueue_assets() {
 		global $post;
 
-		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'plainday' ) ) {
+		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'presto' ) ) {
 			self::enqueue_assets();
 		}
 	}
@@ -39,32 +39,32 @@ class Plainday_Shortcode {
 	public static function render() {
 		self::enqueue_assets();
 
-		$container_id = wp_unique_id( 'plainday-calendar-' );
-		$modal_id     = wp_unique_id( 'plainday-event-popover-' );
+		$container_id = wp_unique_id( 'presto-calendar-' );
+		$modal_id     = wp_unique_id( 'presto-event-popover-' );
 		$config       = self::build_instance_config( $container_id, $modal_id );
 		$json         = wp_json_encode( $config );
 
 		if ( false !== $json ) {
 			wp_add_inline_script(
-				'plainday-frontend',
-				'window.PlaindayCalendars = window.PlaindayCalendars || []; window.PlaindayCalendars.push(' . $json . ');',
+				'presto-frontend',
+				'window.PrestoCalendars = window.PrestoCalendars || []; window.PrestoCalendars.push(' . $json . ');',
 				'before'
 			);
 		}
 
 		ob_start();
 		?>
-		<div class="plainday-shortcode" data-plainday-instance>
-			<div id="<?php echo esc_attr( $container_id ); ?>" class="plainday-calendar" aria-label="<?php esc_attr_e( 'Event calendar', 'plainday' ); ?>"></div>
-			<div id="<?php echo esc_attr( $modal_id ); ?>" class="sx__event-modal plainday-event-popover" hidden aria-hidden="true">
-				<div class="sx__event-modal-default plainday-event-popover__surface" role="dialog" aria-modal="false" aria-labelledby="<?php echo esc_attr( $modal_id ); ?>-title">
-					<div class="sx__has-icon plainday-event-popover__category">
-						<span class="sx__event-modal__color-icon" data-plainday-modal-field="categoryColor"></span>
-						<span data-plainday-modal-field="categoryName"></span>
+		<div class="presto-shortcode" data-presto-instance>
+			<div id="<?php echo esc_attr( $container_id ); ?>" class="presto-calendar" aria-label="<?php esc_attr_e( 'Event calendar', 'presto' ); ?>"></div>
+			<div id="<?php echo esc_attr( $modal_id ); ?>" class="sx__event-modal presto-event-popover" hidden aria-hidden="true">
+				<div class="sx__event-modal-default presto-event-popover__surface" role="dialog" aria-modal="false" aria-labelledby="<?php echo esc_attr( $modal_id ); ?>-title">
+					<div class="sx__has-icon presto-event-popover__category">
+						<span class="sx__event-modal__color-icon" data-presto-modal-field="categoryColor"></span>
+						<span data-presto-modal-field="categoryName"></span>
 					</div>
-					<h2 id="<?php echo esc_attr( $modal_id ); ?>-title" class="sx__event-modal__title plainday-event-popover__title" data-plainday-modal-field="title"></h2>
-					<div class="sx__event-modal__time plainday-event-popover__time" data-plainday-modal-field="time"></div>
-					<p class="plainday-event-popover__description" data-plainday-modal-field="description"></p>
+					<h2 id="<?php echo esc_attr( $modal_id ); ?>-title" class="sx__event-modal__title presto-event-popover__title" data-presto-modal-field="title"></h2>
+					<div class="sx__event-modal__time presto-event-popover__time" data-presto-modal-field="time"></div>
+					<p class="presto-event-popover__description" data-presto-modal-field="description"></p>
 				</div>
 			</div>
 		</div>
@@ -77,30 +77,30 @@ class Plainday_Shortcode {
 	 * Enqueue frontend assets.
 	 */
 	private static function enqueue_assets() {
-		$theme_css = PLAINDAY_DIR . 'assets/dist/frontend.css';
-		$script    = PLAINDAY_DIR . 'assets/dist/frontend.js';
-		$style     = PLAINDAY_DIR . 'assets/css/frontend.css';
+		$theme_css = PRESTO_DIR . 'assets/dist/frontend.css';
+		$script    = PRESTO_DIR . 'assets/dist/frontend.js';
+		$style     = PRESTO_DIR . 'assets/css/frontend.css';
 
 		if ( file_exists( $theme_css ) ) {
 			wp_enqueue_style(
-				'plainday-schedule-x',
-				PLAINDAY_URL . 'assets/dist/frontend.css',
+				'presto-schedule-x',
+				PRESTO_URL . 'assets/dist/frontend.css',
 				array(),
 				self::asset_version( $theme_css )
 			);
 		}
 
 		wp_enqueue_style(
-			'plainday-frontend',
-			PLAINDAY_URL . 'assets/css/frontend.css',
-			file_exists( $theme_css ) ? array( 'plainday-schedule-x' ) : array(),
+			'presto-frontend',
+			PRESTO_URL . 'assets/css/frontend.css',
+			file_exists( $theme_css ) ? array( 'presto-schedule-x' ) : array(),
 			self::asset_version( $style )
 		);
 
 		if ( file_exists( $script ) ) {
 			wp_enqueue_script(
-				'plainday-frontend',
-				PLAINDAY_URL . 'assets/dist/frontend.js',
+				'presto-frontend',
+				PRESTO_URL . 'assets/dist/frontend.js',
 				array(),
 				self::asset_version( $script ),
 				true
@@ -132,8 +132,8 @@ class Plainday_Shortcode {
 				'calendars'            => self::prepare_calendars(),
 			),
 			'i18n'        => array(
-				'noDescription' => __( 'No description provided.', 'plainday' ),
-				'loadError'     => __( 'The calendar could not be loaded.', 'plainday' ),
+				'noDescription' => __( 'No description provided.', 'presto' ),
+				'loadError'     => __( 'The calendar could not be loaded.', 'presto' ),
 			),
 		);
 	}
@@ -144,7 +144,7 @@ class Plainday_Shortcode {
 	 * @return array
 	 */
 	private static function prepare_events() {
-		$events = Plainday_DB::get_events(
+		$events = Presto_DB::get_events(
 			array(
 				'orderby' => 'start',
 				'order'   => 'ASC',
@@ -196,7 +196,7 @@ class Plainday_Shortcode {
 	 * @return array
 	 */
 	private static function prepare_calendars() {
-		$categories = Plainday_DB::get_categories(
+		$categories = Presto_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
@@ -211,7 +211,7 @@ class Plainday_Shortcode {
 			$color_name      = strtolower( preg_replace( '/[^a-z0-9_-]/', '-', $category['slug'] ) );
 
 			if ( '' === $color_name ) {
-				$color_name = 'plainday';
+				$color_name = 'presto';
 			}
 
 			$calendars[ $category['slug'] ] = array(
@@ -373,6 +373,6 @@ class Plainday_Shortcode {
 	 * @return string
 	 */
 	private static function asset_version( $path ) {
-		return file_exists( $path ) ? (string) filemtime( $path ) : PLAINDAY_VERSION;
+		return file_exists( $path ) ? (string) filemtime( $path ) : PRESTO_VERSION;
 	}
 }

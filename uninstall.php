@@ -1,15 +1,15 @@
 <?php
 /**
- * Plainday uninstall cleanup.
+ * Presto uninstall cleanup.
  *
- * @package Plainday
+ * @package Presto
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-require_once __DIR__ . '/includes/class-plainday-db.php';
+require_once __DIR__ . '/includes/class-presto-db.php';
 
 if ( is_multisite() ) {
 	$site_ids = get_sites(
@@ -21,9 +21,9 @@ if ( is_multisite() ) {
 
 	foreach ( $site_ids as $site_id ) {
 		switch_to_blog( $site_id );
-		Plainday_DB::drop_schema();
+		Presto_DB::drop_schema();
 		restore_current_blog();
 	}
 } else {
-	Plainday_DB::drop_schema();
+	Presto_DB::drop_schema();
 }

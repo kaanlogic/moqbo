@@ -188,7 +188,7 @@ function eventToScheduleX(event) {
         description: event.description,
         calendarId: event.calendarId,
         options: event.options || { disableDND: true, disableResize: true },
-        plaindayModal: event.modal
+        prestoModal: event.modal
     };
 
     if (event.allDay) {
@@ -204,7 +204,7 @@ function eventToScheduleX(event) {
 }
 
 function writeText(modal, key, value) {
-    const element = modal.querySelector('[data-plainday-modal-field="' + key + '"]');
+    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
 
     if (element) {
         element.textContent = value || "";
@@ -212,7 +212,7 @@ function writeText(modal, key, value) {
 }
 
 function setCategorySwatch(modal, color) {
-    const swatch = modal.querySelector('[data-plainday-modal-field="categoryColor"]');
+    const swatch = modal.querySelector('[data-presto-modal-field="categoryColor"]');
 
     if (swatch) {
         swatch.style.backgroundColor = color || "#2271b1";
@@ -325,7 +325,7 @@ function closeEventPopover(modal, restoreFocus = true) {
 function renderError(container, message) {
     container.innerHTML = "";
     const error = document.createElement("div");
-    error.className = "plainday-calendar-error";
+    error.className = "presto-calendar-error";
     error.textContent = message;
     container.appendChild(error);
 }
@@ -359,7 +359,7 @@ function initInstance(instance) {
             monthAgenda: monthAgenda.name
         };
         const events = (instance.config.events || []).map(eventToScheduleX);
-        const eventModals = new Map(events.map((event) => [String(event.id), event.plaindayModal]));
+        const eventModals = new Map(events.map((event) => [String(event.id), event.prestoModal]));
         let scheduleXApp = null;
 
         const calendar = createCalendar({
@@ -380,7 +380,7 @@ function initInstance(instance) {
                 isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
                 onEventClick: (payload, uiEvent) => {
                     const clickedEvent = payload && payload.event ? payload.event : payload;
-                    const eventModal = clickedEvent && clickedEvent.plaindayModal ? clickedEvent.plaindayModal : eventModals.get(String(clickedEvent && clickedEvent.id));
+                    const eventModal = clickedEvent && clickedEvent.prestoModal ? clickedEvent.prestoModal : eventModals.get(String(clickedEvent && clickedEvent.id));
 
                     openEventPopover(modal, eventModal, instance.i18n, uiEvent);
                 },
@@ -401,12 +401,12 @@ function initInstance(instance) {
     }
     catch (error) {
         renderError(container, instance.i18n.loadError);
-        console.error("Plainday calendar failed to initialize.", error);
+        console.error("Presto calendar failed to initialize.", error);
     }
 }
 
 function initCalendars() {
-    (window.PlaindayCalendars || []).forEach(initInstance);
+    (window.PrestoCalendars || []).forEach(initInstance);
 }
 
 document.addEventListener("keydown", (event) => {
