@@ -454,11 +454,13 @@ class Presto_DB {
 		global $wpdb;
 
 		$defaults = array(
-			'search'  => '',
-			'orderby' => 'start',
-			'order'   => 'ASC',
-			'number'  => 0,
-			'offset'  => 0,
+			'search'     => '',
+			'start_date' => '',
+			'end_date'   => '',
+			'orderby'    => 'start',
+			'order'      => 'ASC',
+			'number'     => 0,
+			'offset'     => 0,
 		);
 		$args     = wp_parse_args( $args, $defaults );
 
@@ -490,6 +492,16 @@ class Presto_DB {
 			$params[] = $like;
 			$params[] = $like;
 			$params[] = $like;
+		}
+
+		if ( '' !== $args['start_date'] ) {
+			$where[]  = 'e.end_at >= %s';
+			$params[] = $args['start_date'] . ' 00:00:00';
+		}
+
+		if ( '' !== $args['end_date'] ) {
+			$where[]  = 'e.start_at <= %s';
+			$params[] = $args['end_date'] . ' 23:59:59';
 		}
 
 		$sql = 'SELECT e.*, c.name AS category_name, c.color AS category_color

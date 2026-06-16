@@ -42,7 +42,7 @@ class Presto_Settings {
 		return array(
 			self::FEATURE_PRESTO_SHORTCODE         => true,
 			self::FEATURE_PRESTO_GETDATE_SHORTCODE => true,
-			self::FEATURE_API                      => false,
+			self::FEATURE_API                      => true,
 		);
 	}
 
