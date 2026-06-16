@@ -17,8 +17,13 @@ class Presto_Shortcode {
 	 * Register the shortcode.
 	 */
 	public static function register() {
-		add_shortcode( 'presto', array( __CLASS__, 'render' ) );
-		add_shortcode( 'presto-getdate', array( __CLASS__, 'render_getdate' ) );
+		if ( Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
+			add_shortcode( 'presto', array( __CLASS__, 'render' ) );
+		}
+
+		if ( Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE ) ) {
+			add_shortcode( 'presto-getdate', array( __CLASS__, 'render_getdate' ) );
+		}
 	}
 
 	/**
@@ -26,6 +31,10 @@ class Presto_Shortcode {
 	 */
 	public static function maybe_enqueue_assets() {
 		global $post;
+
+		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
+			return;
+		}
 
 		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'presto' ) ) {
 			self::enqueue_assets();
@@ -38,6 +47,10 @@ class Presto_Shortcode {
 	 * @return string
 	 */
 	public static function render() {
+		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
+			return '';
+		}
+
 		self::enqueue_assets();
 
 		$container_id = wp_unique_id( 'presto-calendar-' );
@@ -82,6 +95,10 @@ class Presto_Shortcode {
 	 * @return string
 	 */
 	public static function render_getdate( $atts ) {
+		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE ) ) {
+			return '';
+		}
+
 		$atts = shortcode_atts(
 			array(
 				'name' => '',

@@ -31,6 +31,7 @@ class Presto_Admin {
 	 * Register admin hooks.
 	 */
 	public static function init() {
+		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'admin_init', array( __CLASS__, 'handle_admin_requests' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menus' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
@@ -106,6 +107,45 @@ class Presto_Admin {
 			'manage_options',
 			'presto-categories',
 			array( __CLASS__, 'render_categories_page' )
+		);
+
+		add_submenu_page(
+			'presto',
+			__( 'Settings', 'presto' ),
+			__( 'Settings', 'presto' ),
+			'manage_options',
+			'presto-settings',
+			array( __CLASS__, 'render_settings_page' )
+		);
+	}
+
+	/**
+	 * Register settings fields.
+	 */
+	public static function register_settings() {
+		register_setting(
+			'presto_settings',
+			Presto_Settings::OPTION_NAME,
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( 'Presto_Settings', 'sanitize' ),
+				'default'           => Presto_Settings::defaults(),
+			)
+		);
+
+		add_settings_section(
+			'presto_feature_settings',
+			__( 'Feature Settings', 'presto' ),
+			array( __CLASS__, 'render_feature_settings_section' ),
+			'presto-settings'
+		);
+
+		add_settings_field(
+			'presto_features',
+			__( 'Features', 'presto' ),
+			array( __CLASS__, 'render_features_field' ),
+			'presto-settings',
+			'presto_feature_settings'
 		);
 	}
 
@@ -362,6 +402,56 @@ class Presto_Admin {
 				</div>
 			</div>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Settings page.
+	 */
+	public static function render_settings_page() {
+		self::require_capability();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Settings', 'presto' ); ?></h1>
+			<?php settings_errors(); ?>
+
+			<form method="post" action="options.php">
+				<?php
+				settings_fields( 'presto_settings' );
+				do_settings_sections( 'presto-settings' );
+				submit_button();
+				?>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the feature settings section description.
+	 */
+	public static function render_feature_settings_section() {
+		return;
+	}
+
+	/**
+	 * Render feature checkboxes.
+	 */
+	public static function render_features_field() {
+		$settings = Presto_Settings::get();
+		$features = array(
+			Presto_Settings::FEATURE_PRESTO_SHORTCODE         => __( 'Enable [presto] shortcode', 'presto' ),
+			Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE => __( 'Enable [presto-getdate] shortcode', 'presto' ),
+			Presto_Settings::FEATURE_API                      => __( 'Enable Presto API', 'presto' ),
+		);
+		?>
+		<fieldset>
+			<?php foreach ( $features as $key => $label ) : ?>
+				<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
+					<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
+					<?php echo esc_html( $label ); ?>
+				</label><br>
+			<?php endforeach; ?>
+		</fieldset>
 		<?php
 	}
 
