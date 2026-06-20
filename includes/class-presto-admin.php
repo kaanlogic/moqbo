@@ -147,6 +147,37 @@ class Presto_Admin {
 			'presto-settings',
 			'presto_feature_settings'
 		);
+
+		add_settings_section(
+			'presto_api_settings',
+			__( 'API Settings', 'presto' ),
+			array( __CLASS__, 'render_api_settings_section' ),
+			'presto-settings'
+		);
+
+		add_settings_field(
+			'presto_api_auth_required',
+			__( 'Authentication', 'presto' ),
+			array( __CLASS__, 'render_api_auth_required_field' ),
+			'presto-settings',
+			'presto_api_settings'
+		);
+
+		add_settings_field(
+			'presto_api_token',
+			__( 'Token', 'presto' ),
+			array( __CLASS__, 'render_api_token_field' ),
+			'presto-settings',
+			'presto_api_settings'
+		);
+
+		add_settings_field(
+			'presto_api_endpoints',
+			__( 'Endpoints', 'presto' ),
+			array( __CLASS__, 'render_api_endpoints_field' ),
+			'presto-settings',
+			'presto_api_settings'
+		);
 	}
 
 	/**
@@ -434,21 +465,102 @@ class Presto_Admin {
 	}
 
 	/**
+	 * Render the API settings section description.
+	 */
+	public static function render_api_settings_section() {
+		return;
+	}
+
+	/**
 	 * Render feature checkboxes.
 	 */
 	public static function render_features_field() {
 		$settings = Presto_Settings::get();
 		$features = array(
-			Presto_Settings::FEATURE_PRESTO_SHORTCODE         => __( 'Enable [presto] shortcode', 'presto' ),
-			Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE => __( 'Enable [presto-getdate] shortcode', 'presto' ),
-			Presto_Settings::FEATURE_API                      => __( 'Enable Presto API', 'presto' ),
+			Presto_Settings::FEATURE_PRESTO_SHORTCODE         => sprintf(
+				/* translators: %s: shortcode tag. */
+				__( 'Enable <code>%s</code> shortcode', 'presto' ),
+				esc_html( '[presto]' )
+			),
+			Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE => sprintf(
+				/* translators: %s: shortcode tag. */
+				__( 'Enable <code>%s</code> shortcode', 'presto' ),
+				esc_html( '[presto-getdate]' )
+			),
+			Presto_Settings::FEATURE_API                      => esc_html__( 'Enable Presto API', 'presto' ),
 		);
 		?>
 		<fieldset>
 			<?php foreach ( $features as $key => $label ) : ?>
 				<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
 					<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
-					<?php echo esc_html( $label ); ?>
+					<?php echo wp_kses_post( $label ); ?>
+				</label><br>
+			<?php endforeach; ?>
+		</fieldset>
+		<?php
+	}
+
+	/**
+	 * Render API authentication toggle.
+	 */
+	public static function render_api_auth_required_field() {
+		$settings = Presto_Settings::get();
+		?>
+		<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_AUTH_REQUIRED ) ); ?>">
+			<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . Presto_Settings::API_AUTH_REQUIRED . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_AUTH_REQUIRED ) ); ?>" value="1" <?php checked( ! empty( $settings[ Presto_Settings::API_AUTH_REQUIRED ] ) ); ?>>
+			<?php esc_html_e( 'Require bearer token authentication for API endpoints', 'presto' ); ?>
+		</label>
+		<?php
+	}
+
+	/**
+	 * Render API token input.
+	 */
+	public static function render_api_token_field() {
+		$settings = Presto_Settings::get();
+		$token    = isset( $settings[ Presto_Settings::API_TOKEN ] ) ? $settings[ Presto_Settings::API_TOKEN ] : '';
+		?>
+		<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . Presto_Settings::API_TOKEN . ']' ); ?>" type="text" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_TOKEN ) ); ?>" class="regular-text" value="<?php echo esc_attr( $token ); ?>" autocomplete="off">
+		<p class="description">
+			<?php
+			echo wp_kses_post(
+				sprintf(
+					/* translators: %s: Authorization header example. */
+					__( 'Clients can send this value with the Authorization header (For example: <code>%s</code>)', 'presto' ),
+					esc_html( 'Bearer your-token' )
+				)
+			);
+			?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render API endpoint toggles.
+	 */
+	public static function render_api_endpoints_field() {
+		$settings      = Presto_Settings::get();
+		$endpoint_path = '/wp-json/presto/v1/events';
+		$endpoints     = array(
+			Presto_Settings::API_GET_EVENTS_ENABLED  => __( 'GET', 'presto' ),
+			Presto_Settings::API_POST_EVENTS_ENABLED => __( 'POST', 'presto' ),
+		);
+		?>
+		<fieldset>
+			<?php foreach ( $endpoints as $key => $method ) : ?>
+				<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
+					<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
+					<?php
+					echo wp_kses_post(
+						sprintf(
+							/* translators: 1: REST endpoint path. 2: HTTP method. */
+							__( 'Enable <code>%1$s</code> %2$s endpoint', 'presto' ),
+							esc_html( $endpoint_path ),
+							esc_html( $method )
+						)
+					);
+					?>
 				</label><br>
 			<?php endforeach; ?>
 		</fieldset>
