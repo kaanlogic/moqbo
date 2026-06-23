@@ -540,28 +540,35 @@ class Presto_Admin {
 	 * Render API endpoint toggles.
 	 */
 	public static function render_api_endpoints_field() {
-		$settings      = Presto_Settings::get();
-		$endpoint_path = '/wp-json/presto/v1/events';
-		$endpoints     = array(
-			Presto_Settings::API_GET_EVENTS_ENABLED  => __( 'GET', 'presto' ),
-			Presto_Settings::API_POST_EVENTS_ENABLED => __( 'POST', 'presto' ),
+		$settings  = Presto_Settings::get();
+		$endpoints = array(
+			'/wp-json/presto/v1/events'     => array(
+				Presto_Settings::API_GET_EVENTS_ENABLED  => __( 'GET', 'presto' ),
+				Presto_Settings::API_POST_EVENTS_ENABLED => __( 'POST', 'presto' ),
+			),
+			'/wp-json/presto/v1/categories' => array(
+				Presto_Settings::API_GET_CATEGORIES_ENABLED  => __( 'GET', 'presto' ),
+				Presto_Settings::API_POST_CATEGORIES_ENABLED => __( 'POST', 'presto' ),
+			),
 		);
 		?>
 		<fieldset>
-			<?php foreach ( $endpoints as $key => $method ) : ?>
-				<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
-					<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
-					<?php
-					echo wp_kses_post(
-						sprintf(
-							/* translators: 1: REST endpoint path. 2: HTTP method. */
-							__( 'Enable <code>%1$s</code> %2$s endpoint', 'presto' ),
-							esc_html( $endpoint_path ),
-							esc_html( $method )
-						)
-					);
-					?>
-				</label><br>
+			<?php foreach ( $endpoints as $endpoint_path => $methods ) : ?>
+				<?php foreach ( $methods as $key => $method ) : ?>
+					<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
+						<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
+						<?php
+						echo wp_kses_post(
+							sprintf(
+								/* translators: 1: REST endpoint path. 2: HTTP method. */
+								__( 'Enable <code>%1$s</code> %2$s endpoint', 'presto' ),
+								esc_html( $endpoint_path ),
+								esc_html( $method )
+							)
+						);
+						?>
+					</label><br>
+				<?php endforeach; ?>
 			<?php endforeach; ?>
 		</fieldset>
 		<?php

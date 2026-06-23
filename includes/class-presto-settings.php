@@ -54,6 +54,16 @@ class Presto_Settings {
 	const API_POST_EVENTS_ENABLED = 'api_post_events_enabled';
 
 	/**
+	 * API setting for enabling the categories GET endpoint.
+	 */
+	const API_GET_CATEGORIES_ENABLED = 'api_get_categories_enabled';
+
+	/**
+	 * API setting for enabling the categories POST endpoint.
+	 */
+	const API_POST_CATEGORIES_ENABLED = 'api_post_categories_enabled';
+
+	/**
 	 * Get default settings.
 	 *
 	 * @return array
@@ -67,6 +77,8 @@ class Presto_Settings {
 			self::API_TOKEN                        => '',
 			self::API_GET_EVENTS_ENABLED           => true,
 			self::API_POST_EVENTS_ENABLED          => false,
+			self::API_GET_CATEGORIES_ENABLED       => true,
+			self::API_POST_CATEGORIES_ENABLED      => false,
 		);
 	}
 
@@ -83,6 +95,8 @@ class Presto_Settings {
 			self::API_AUTH_REQUIRED,
 			self::API_GET_EVENTS_ENABLED,
 			self::API_POST_EVENTS_ENABLED,
+			self::API_GET_CATEGORIES_ENABLED,
+			self::API_POST_CATEGORIES_ENABLED,
 		);
 	}
 

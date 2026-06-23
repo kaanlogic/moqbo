@@ -47,6 +47,25 @@ class Presto_API {
 				),
 			)
 		);
+
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/categories',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'get_categories' ),
+					'permission_callback' => array( __CLASS__, 'get_categories_permissions_check' ),
+					'args'                => self::get_categories_args(),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( __CLASS__, 'create_category' ),
+					'permission_callback' => array( __CLASS__, 'create_category_permissions_check' ),
+					'args'                => self::create_category_args(),
+				),
+			)
+		);
 	}
 
 	/**
@@ -76,6 +95,36 @@ class Presto_API {
 			Presto_Settings::API_POST_EVENTS_ENABLED,
 			'presto_api_post_events_disabled',
 			__( 'The Presto events POST endpoint is disabled.', 'presto' )
+		);
+	}
+
+	/**
+	 * Check whether the categories GET endpoint is available.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return true|WP_Error
+	 */
+	public static function get_categories_permissions_check( $request ) {
+		return self::endpoint_permissions_check(
+			$request,
+			Presto_Settings::API_GET_CATEGORIES_ENABLED,
+			'presto_api_get_categories_disabled',
+			__( 'The Presto categories GET endpoint is disabled.', 'presto' )
+		);
+	}
+
+	/**
+	 * Check whether the categories POST endpoint is available.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return true|WP_Error
+	 */
+	public static function create_category_permissions_check( $request ) {
+		return self::endpoint_permissions_check(
+			$request,
+			Presto_Settings::API_POST_CATEGORIES_ENABLED,
+			'presto_api_post_categories_disabled',
+			__( 'The Presto categories POST endpoint is disabled.', 'presto' )
 		);
 	}
 
@@ -158,6 +207,55 @@ class Presto_API {
 
 		$event    = Presto_DB::get_event( $validated['slug'] );
 		$response = rest_ensure_response( self::prepare_event( $event ? $event : $validated ) );
+		$response->set_status( 201 );
+
+		return $response;
+	}
+
+	/**
+	 * Return event categories.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public static function get_categories( $request ) {
+		$categories = Presto_DB::get_categories(
+			array(
+				'orderby' => 'name',
+				'order'   => 'ASC',
+			)
+		);
+
+		return rest_ensure_response( array_map( array( __CLASS__, 'prepare_category' ), $categories ) );
+	}
+
+	/**
+	 * Create a category from REST request data.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function create_category( $request ) {
+		$validated = self::validate_category_request( $request );
+
+		if ( is_wp_error( $validated ) ) {
+			return $validated;
+		}
+
+		$now                     = current_time( 'mysql' );
+		$validated['created_at'] = $now;
+		$validated['updated_at'] = $now;
+
+		if ( ! Presto_DB::insert_category( $validated ) ) {
+			return new WP_Error(
+				'presto_save_category_failed',
+				__( 'The category could not be saved.', 'presto' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		$category = Presto_DB::get_category( $validated['slug'] );
+		$response = rest_ensure_response( self::prepare_category( $category ? $category : $validated ) );
 		$response->set_status( 201 );
 
 		return $response;
@@ -384,6 +482,43 @@ class Presto_API {
 	}
 
 	/**
+	 * Get REST args for category listing.
+	 *
+	 * @return array
+	 */
+	private static function get_categories_args() {
+		return array();
+	}
+
+	/**
+	 * Get REST args for category creation.
+	 *
+	 * @return array
+	 */
+	private static function create_category_args() {
+		return array(
+			'name'  => array(
+				'description'       => __( 'Category name', 'presto' ),
+				'type'              => 'string',
+				'required'          => true,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
+			),
+			'slug'  => array(
+				'description'       => __( 'Category slug', 'presto' ),
+				'type'              => 'string',
+				'required'          => true,
+				'sanitize_callback' => 'sanitize_title',
+			),
+			'color' => array(
+				'description'       => __( 'Category color (Hex)', 'presto' ),
+				'type'              => 'string',
+				'required'          => true,
+				'sanitize_callback' => 'sanitize_hex_color',
+			),
+		);
+	}
+
+	/**
 	 * Validate REST event creation data.
 	 *
 	 * @param WP_REST_Request $request REST request.
@@ -436,6 +571,45 @@ class Presto_API {
 	}
 
 	/**
+	 * Validate REST category creation data.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return array|WP_Error
+	 */
+	private static function validate_category_request( $request ) {
+		$errors = new WP_Error();
+		$name   = self::sanitize_text_arg( $request->get_param( 'name' ) );
+		$slug   = sanitize_title( (string) $request->get_param( 'slug' ) );
+		$color  = sanitize_hex_color( (string) $request->get_param( 'color' ) );
+
+		if ( '' === $name ) {
+			self::add_validation_error( $errors, 'missing_name', __( 'Category name is required.', 'presto' ) );
+		}
+
+		if ( '' === $slug ) {
+			self::add_validation_error( $errors, 'missing_slug', __( 'Category slug is required.', 'presto' ) );
+		}
+
+		if ( '' !== $slug && Presto_DB::get_category( $slug ) ) {
+			self::add_validation_error( $errors, 'duplicate_slug', __( 'A category with this slug already exists.', 'presto' ) );
+		}
+
+		if ( ! $color || ! preg_match( '/^#[0-9A-Fa-f]{6}$/', $color ) ) {
+			self::add_validation_error( $errors, 'invalid_color', __( 'Choose a valid hex color.', 'presto' ) );
+		}
+
+		if ( $errors->has_errors() ) {
+			return $errors;
+		}
+
+		return array(
+			'slug'  => $slug,
+			'name'  => $name,
+			'color' => $color,
+		);
+	}
+
+	/**
 	 * Add a REST validation error.
 	 *
 	 * @param WP_Error $errors Error collection.
@@ -461,6 +635,23 @@ class Presto_API {
 			'description'   => wp_strip_all_tags( isset( $event['description'] ) ? (string) $event['description'] : '' ),
 			'start_at'      => $event['start_at'],
 			'end_at'        => $event['end_at'],
+		);
+	}
+
+	/**
+	 * Prepare a category for the public API response.
+	 *
+	 * @param array $category Category row.
+	 * @return array
+	 */
+	private static function prepare_category( $category ) {
+		$color = sanitize_hex_color( isset( $category['color'] ) ? (string) $category['color'] : '' );
+
+		return array(
+			'name'        => wp_strip_all_tags( isset( $category['name'] ) ? (string) $category['name'] : '' ),
+			'slug'        => sanitize_title( isset( $category['slug'] ) ? (string) $category['slug'] : '' ),
+			'color'       => $color ? strtolower( $color ) : '',
+			'event_count' => isset( $category['event_count'] ) ? (int) $category['event_count'] : 0,
 		);
 	}
 
