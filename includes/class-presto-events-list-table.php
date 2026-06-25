@@ -79,6 +79,8 @@ class Presto_Events_List_Table extends WP_List_Table {
 			'start_time'  => __( 'Start Time', 'presto' ),
 			'end_date'    => __( 'End Date', 'presto' ),
 			'end_time'    => __( 'End Time', 'presto' ),
+			'created_at'  => __( 'Created At', 'presto' ),
+			'updated_at'  => __( 'Updated At', 'presto' ),
 		);
 	}
 
@@ -98,6 +100,8 @@ class Presto_Events_List_Table extends WP_List_Table {
 			'start_time' => array( 'start_time', false ),
 			'end_date'   => array( 'end_date', false ),
 			'end_time'   => array( 'end_time', false ),
+			'created_at' => array( 'created_at', false ),
+			'updated_at' => array( 'updated_at', false ),
 		);
 	}
 
@@ -190,6 +194,10 @@ class Presto_Events_List_Table extends WP_List_Table {
 				return esc_html( $this->format_event_date( $item['end_at'] ) );
 			case 'end_time':
 				return (bool) $item['all_day'] ? '&mdash;' : esc_html( $this->format_event_time( $item['end_at'] ) );
+			case 'created_at':
+				return esc_html( $this->format_event_datetime( $item['created_at'] ) );
+			case 'updated_at':
+				return esc_html( $this->format_event_datetime( $item['updated_at'] ) );
 			default:
 				return '';
 		}
@@ -225,6 +233,22 @@ class Presto_Events_List_Table extends WP_List_Table {
 		}
 
 		return wp_date( get_option( 'time_format' ), $dt->getTimestamp(), wp_timezone() );
+	}
+
+	/**
+	 * Format a stored local datetime as a date and time.
+	 *
+	 * @param string $datetime Stored local datetime.
+	 * @return string
+	 */
+	private function format_event_datetime( $datetime ) {
+		$dt = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', $datetime, wp_timezone() );
+
+		if ( ! $dt ) {
+			return $datetime;
+		}
+
+		return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $dt->getTimestamp(), wp_timezone() );
 	}
 
 	/**

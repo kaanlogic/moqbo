@@ -476,6 +476,8 @@ class Presto_DB {
 			'end'        => 'e.end_at',
 			'end_date'   => 'e.end_at',
 			'end_time'   => 'e.end_at',
+			'created_at' => 'e.created_at',
+			'updated_at' => 'e.updated_at',
 		);
 
 		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'e.start_at';
