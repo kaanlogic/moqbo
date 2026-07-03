@@ -14,6 +14,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Presto_DB {
 	/**
+	 * Object cache group for Presto query results.
+	 */
+	const CACHE_GROUP = 'presto';
+
+	/**
+	 * Object cache key for cache generation invalidation.
+	 */
+	const CACHE_LAST_CHANGED_KEY = 'last_changed';
+
+	/**
 	 * Activate the plugin on one or all sites.
 	 *
 	 * @param bool $network_wide Whether the plugin is network activated.
@@ -115,6 +125,7 @@ class Presto_DB {
 		self::reorder_events_columns();
 
 		update_option( 'presto_db_version', PRESTO_DB_VERSION );
+		self::flush_cache();
 	}
 
 	/**
@@ -125,7 +136,10 @@ class Presto_DB {
 
 		$events_table = self::events_table();
 		$expected     = array( 'name', 'slug', 'location', 'category_slug', 'description', 'all_day', 'start_at', 'end_at', 'created_at', 'updated_at' );
-		$columns      = $wpdb->get_col( 'DESCRIBE ' . $events_table, 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$columns      = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema introspection for a custom table during migration.
+			$wpdb->prepare( 'DESCRIBE %i', $events_table ),
+			0
+		);
 
 		if ( array_slice( $columns, 0, count( $expected ) ) === $expected ) {
 			return;
@@ -135,8 +149,10 @@ class Presto_DB {
 			return;
 		}
 
-		$wpdb->query(
-			'ALTER TABLE ' . $events_table . '
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional custom table migration.
+		$altered = $wpdb->query(
+			$wpdb->prepare(
+				'ALTER TABLE %i
 				MODIFY name varchar(255) NOT NULL FIRST,
 				MODIFY slug varchar(191) NOT NULL AFTER name,
 				MODIFY location varchar(255) NOT NULL DEFAULT \'\' AFTER slug,
@@ -146,8 +162,15 @@ class Presto_DB {
 				MODIFY start_at datetime NOT NULL AFTER all_day,
 				MODIFY end_at datetime NOT NULL AFTER start_at,
 				MODIFY created_at datetime NOT NULL AFTER end_at,
-				MODIFY updated_at datetime NOT NULL AFTER created_at'
-		); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				MODIFY updated_at datetime NOT NULL AFTER created_at',
+				$events_table
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
+
+		if ( false !== $altered ) {
+			self::flush_cache();
+		}
 	}
 
 	/**
@@ -156,10 +179,11 @@ class Presto_DB {
 	public static function drop_schema() {
 		global $wpdb;
 
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::events_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::categories_table() ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::events_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::categories_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
 
 		delete_option( 'presto_db_version' );
+		self::flush_cache();
 	}
 
 	/**
@@ -171,10 +195,21 @@ class Presto_DB {
 	public static function get_category( $slug ) {
 		global $wpdb;
 
-		return $wpdb->get_row(
-			$wpdb->prepare( 'SELECT * FROM ' . self::categories_table() . ' WHERE slug = %s', $slug ), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$cache_key = self::cache_key( 'category', array( $slug ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		$category = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
+			$wpdb->prepare( 'SELECT * FROM %i WHERE slug = %s', self::categories_table(), $slug ),
 			ARRAY_A
 		);
+
+		wp_cache_set( $cache_key, $category, self::CACHE_GROUP );
+
+		return $category;
 	}
 
 	/**
@@ -185,6 +220,19 @@ class Presto_DB {
 	 */
 	public static function count_categories( $args = array() ) {
 		global $wpdb;
+		$args = wp_parse_args(
+			$args,
+			array(
+				'search' => '',
+			)
+		);
+
+		$cache_key = self::cache_key( 'count_categories', $args );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
 
 		$where  = array( '1=1' );
 		$params = array();
@@ -196,9 +244,14 @@ class Presto_DB {
 			$params[] = $like;
 		}
 
-		$sql = 'SELECT COUNT(*) FROM ' . self::categories_table() . ' WHERE ' . implode( ' AND ', $where ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$sql    = 'SELECT COUNT(*) FROM %i WHERE ' . implode( ' AND ', $where );
+		$params = array_merge( array( self::categories_table() ), $params );
+		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
+		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
 
-		return (int) $wpdb->get_var( self::prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+
+		return $count;
 	}
 
 	/**
@@ -218,6 +271,8 @@ class Presto_DB {
 			'offset'  => 0,
 		);
 		$args     = wp_parse_args( $args, $defaults );
+		$args['number'] = (int) $args['number'];
+		$args['offset'] = (int) $args['offset'];
 
 		$orderby_map = array(
 			'name'  => 'c.name',
@@ -227,6 +282,13 @@ class Presto_DB {
 
 		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'c.name';
 		$order   = 'DESC' === strtoupper( $args['order'] ) ? 'DESC' : 'ASC';
+
+		$cache_key = self::cache_key( 'categories', $args );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
 
 		$where  = array( '1=1' );
 		$params = array();
@@ -239,19 +301,26 @@ class Presto_DB {
 		}
 
 		$sql = 'SELECT c.slug, c.name, c.color, c.created_at, c.updated_at, COUNT(e.slug) AS event_count
-			FROM ' . self::categories_table() . ' c
-			LEFT JOIN ' . self::events_table() . ' e ON e.category_slug = c.slug
+			FROM %i c
+			LEFT JOIN %i e ON e.category_slug = c.slug
 			WHERE ' . implode( ' AND ', $where ) . '
 			GROUP BY c.slug, c.name, c.color, c.created_at, c.updated_at
-			ORDER BY ' . $orderby . ' ' . $order; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			ORDER BY ' . $orderby . ' ' . $order;
 
-		if ( (int) $args['number'] > 0 ) {
+		$params = array_merge( array( self::categories_table(), self::events_table() ), $params );
+
+		if ( $args['number'] > 0 ) {
 			$sql     .= ' LIMIT %d OFFSET %d';
-			$params[] = (int) $args['number'];
-			$params[] = (int) $args['offset'];
+			$params[] = $args['number'];
+			$params[] = $args['offset'];
 		}
 
-		return $wpdb->get_results( self::prepare( $sql, $params ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$query      = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
+		$categories = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+
+		wp_cache_set( $cache_key, $categories, self::CACHE_GROUP );
+
+		return $categories;
 	}
 
 	/**
@@ -263,7 +332,7 @@ class Presto_DB {
 	public static function insert_category( $data ) {
 		global $wpdb;
 
-		return false !== $wpdb->insert(
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table write; cache invalidated on success.
 			self::categories_table(),
 			array(
 				'slug'       => $data['slug'],
@@ -274,6 +343,12 @@ class Presto_DB {
 			),
 			array( '%s', '%s', '%s', '%s', '%s' )
 		);
+
+		if ( false !== $inserted ) {
+			self::flush_cache();
+		}
+
+		return false !== $inserted;
 	}
 
 	/**
@@ -286,7 +361,7 @@ class Presto_DB {
 	public static function update_category( $old_slug, $data ) {
 		global $wpdb;
 
-		$updated = $wpdb->update(
+		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
 			self::categories_table(),
 			array(
 				'slug'       => $data['slug'],
@@ -304,7 +379,7 @@ class Presto_DB {
 		}
 
 		if ( $old_slug !== $data['slug'] ) {
-			$references_updated = $wpdb->update(
+			$references_updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
 				self::events_table(),
 				array( 'category_slug' => $data['slug'] ),
 				array( 'category_slug' => $old_slug ),
@@ -316,6 +391,8 @@ class Presto_DB {
 				return false;
 			}
 		}
+
+		self::flush_cache();
 
 		return true;
 	}
@@ -329,9 +406,20 @@ class Presto_DB {
 	public static function count_events_for_category( $slug ) {
 		global $wpdb;
 
-		return (int) $wpdb->get_var(
-			$wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::events_table() . ' WHERE category_slug = %s', $slug ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$cache_key = self::cache_key( 'count_events_for_category', array( $slug ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
+			$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE category_slug = %s', self::events_table(), $slug )
 		);
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+
+		return $count;
 	}
 
 	/**
@@ -354,11 +442,15 @@ class Presto_DB {
 				continue;
 			}
 
-			$deleted = $wpdb->delete( self::categories_table(), array( 'slug' => $slug ), array( '%s' ) );
+			$deleted = $wpdb->delete( self::categories_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
 
 			if ( false !== $deleted && $deleted > 0 ) {
 				$result['deleted'][] = $slug;
 			}
+		}
+
+		if ( ! empty( $result['deleted'] ) ) {
+			self::flush_cache();
 		}
 
 		return $result;
@@ -373,16 +465,29 @@ class Presto_DB {
 	public static function get_event( $slug ) {
 		global $wpdb;
 
-		return $wpdb->get_row(
+		$cache_key = self::cache_key( 'event', array( $slug ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		$event = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
 			$wpdb->prepare(
 				'SELECT e.*, c.name AS category_name, c.color AS category_color
-				FROM ' . self::events_table() . ' e
-				LEFT JOIN ' . self::categories_table() . ' c ON c.slug = e.category_slug
+				FROM %i e
+				LEFT JOIN %i c ON c.slug = e.category_slug
 				WHERE e.slug = %s',
+				self::events_table(),
+				self::categories_table(),
 				$slug
-			), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			),
 			ARRAY_A
 		);
+
+		wp_cache_set( $cache_key, $event, self::CACHE_GROUP );
+
+		return $event;
 	}
 
 	/**
@@ -397,21 +502,32 @@ class Presto_DB {
 		$like        = '%' . $wpdb->esc_like( $name ) . '%';
 		$today_start = current_time( 'Y-m-d' ) . ' 00:00:00';
 		$now         = current_time( 'mysql' );
+		$cache_key   = self::cache_key( 'next_event_by_name', array( $name, current_time( 'Y-m-d H:i' ) ) );
+		$cached      = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
-		return $wpdb->get_row(
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		$event = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with a short-lived cache key.
 			$wpdb->prepare(
 				'SELECT e.*
-				FROM ' . self::events_table() . ' e
+				FROM %i e
 				WHERE e.name LIKE %s
 				AND ( ( e.all_day = 1 AND e.start_at >= %s ) OR ( e.all_day = 0 AND e.start_at >= %s ) )
 				ORDER BY e.start_at ASC, e.slug ASC
 				LIMIT 1',
+				self::events_table(),
 				$like,
 				$today_start,
 				$now
-			), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			),
 			ARRAY_A
 		);
+
+		wp_cache_set( $cache_key, $event, self::CACHE_GROUP, MINUTE_IN_SECONDS );
+
+		return $event;
 	}
 
 	/**
@@ -422,6 +538,19 @@ class Presto_DB {
 	 */
 	public static function count_events( $args = array() ) {
 		global $wpdb;
+		$args = wp_parse_args(
+			$args,
+			array(
+				'search' => '',
+			)
+		);
+
+		$cache_key = self::cache_key( 'count_events', $args );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
 
 		$where  = array( '1=1' );
 		$params = array();
@@ -437,11 +566,16 @@ class Presto_DB {
 		}
 
 		$sql = 'SELECT COUNT(*)
-			FROM ' . self::events_table() . ' e
-			LEFT JOIN ' . self::categories_table() . ' c ON c.slug = e.category_slug
-			WHERE ' . implode( ' AND ', $where ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			FROM %i e
+			LEFT JOIN %i c ON c.slug = e.category_slug
+			WHERE ' . implode( ' AND ', $where );
+		$params = array_merge( array( self::events_table(), self::categories_table() ), $params );
+		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
+		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
 
-		return (int) $wpdb->get_var( self::prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+
+		return $count;
 	}
 
 	/**
@@ -463,6 +597,8 @@ class Presto_DB {
 			'offset'     => 0,
 		);
 		$args     = wp_parse_args( $args, $defaults );
+		$args['number'] = (int) $args['number'];
+		$args['offset'] = (int) $args['offset'];
 
 		$orderby_map = array(
 			'name'       => 'e.name',
@@ -482,6 +618,13 @@ class Presto_DB {
 
 		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'e.start_at';
 		$order   = 'DESC' === strtoupper( $args['order'] ) ? 'DESC' : 'ASC';
+
+		$cache_key = self::cache_key( 'events', $args );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
 
 		$where  = array( '1=1' );
 		$params = array();
@@ -507,18 +650,25 @@ class Presto_DB {
 		}
 
 		$sql = 'SELECT e.*, c.name AS category_name, c.color AS category_color
-			FROM ' . self::events_table() . ' e
-			LEFT JOIN ' . self::categories_table() . ' c ON c.slug = e.category_slug
+			FROM %i e
+			LEFT JOIN %i c ON c.slug = e.category_slug
 			WHERE ' . implode( ' AND ', $where ) . '
-			ORDER BY ' . $orderby . ' ' . $order . ', e.slug ASC'; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			ORDER BY ' . $orderby . ' ' . $order . ', e.slug ASC';
 
-		if ( (int) $args['number'] > 0 ) {
+		$params = array_merge( array( self::events_table(), self::categories_table() ), $params );
+
+		if ( $args['number'] > 0 ) {
 			$sql     .= ' LIMIT %d OFFSET %d';
-			$params[] = (int) $args['number'];
-			$params[] = (int) $args['offset'];
+			$params[] = $args['number'];
+			$params[] = $args['offset'];
 		}
 
-		return $wpdb->get_results( self::prepare( $sql, $params ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
+		$events = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+
+		wp_cache_set( $cache_key, $events, self::CACHE_GROUP );
+
+		return $events;
 	}
 
 	/**
@@ -530,7 +680,7 @@ class Presto_DB {
 	public static function insert_event( $data ) {
 		global $wpdb;
 
-		return false !== $wpdb->insert(
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table write; cache invalidated on success.
 			self::events_table(),
 			array(
 				'name'          => $data['name'],
@@ -546,6 +696,12 @@ class Presto_DB {
 			),
 			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
 		);
+
+		if ( false !== $inserted ) {
+			self::flush_cache();
+		}
+
+		return false !== $inserted;
 	}
 
 	/**
@@ -558,7 +714,7 @@ class Presto_DB {
 	public static function update_event( $old_slug, $data ) {
 		global $wpdb;
 
-		$updated = $wpdb->update(
+		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
 			self::events_table(),
 			array(
 				'name'          => $data['name'],
@@ -576,6 +732,10 @@ class Presto_DB {
 			array( '%s' )
 		);
 
+		if ( false !== $updated ) {
+			self::flush_cache();
+		}
+
 		return false !== $updated;
 	}
 
@@ -591,30 +751,64 @@ class Presto_DB {
 		$deleted = 0;
 
 		foreach ( array_filter( array_map( 'sanitize_title', (array) $slugs ) ) as $slug ) {
-			$result = $wpdb->delete( self::events_table(), array( 'slug' => $slug ), array( '%s' ) );
+			$result = $wpdb->delete( self::events_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
 
 			if ( false !== $result ) {
 				$deleted += (int) $result;
 			}
 		}
 
+		if ( $deleted > 0 ) {
+			self::flush_cache();
+		}
+
 		return $deleted;
 	}
 
 	/**
-	 * Prepare a query only when placeholders are present.
+	 * Get a cache key scoped to the current blog and cache generation.
 	 *
-	 * @param string $sql SQL query.
-	 * @param array  $params Placeholder values.
+	 * @param string $context Cache context.
+	 * @param array  $parts Cache key parts.
 	 * @return string
 	 */
-	private static function prepare( $sql, $params ) {
-		global $wpdb;
+	private static function cache_key( $context, $parts = array() ) {
+		$payload = wp_json_encode(
+			array(
+				'blog_id'      => get_current_blog_id(),
+				'context'      => $context,
+				'last_changed' => self::get_cache_last_changed(),
+				'parts'        => $parts,
+			)
+		);
 
-		if ( empty( $params ) ) {
-			return $sql;
+		if ( false === $payload ) {
+			$payload = serialize( $parts ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Cache key fallback for non-JSON-encodable values.
 		}
 
-		return $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return 'presto_' . md5( $payload );
+	}
+
+	/**
+	 * Get the cache generation marker.
+	 *
+	 * @return string
+	 */
+	private static function get_cache_last_changed() {
+		$last_changed = wp_cache_get( self::CACHE_LAST_CHANGED_KEY, self::CACHE_GROUP );
+
+		if ( false === $last_changed ) {
+			$last_changed = microtime();
+			wp_cache_set( self::CACHE_LAST_CHANGED_KEY, $last_changed, self::CACHE_GROUP );
+		}
+
+		return $last_changed;
+	}
+
+	/**
+	 * Invalidate cached Presto query results.
+	 */
+	private static function flush_cache() {
+		wp_cache_set( self::CACHE_LAST_CHANGED_KEY, microtime(), self::CACHE_GROUP );
 	}
 }

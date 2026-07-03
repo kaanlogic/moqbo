@@ -617,8 +617,7 @@ class Presto_Admin {
 
 		self::require_capability();
 
-		$raw_events = isset( $_REQUEST['event'] ) ? wp_unslash( $_REQUEST['event'] ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$slugs      = array_filter( array_map( 'sanitize_title', (array) $raw_events ) );
+		$slugs = isset( $_REQUEST['event'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['event'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
 			self::redirect_to( 'presto', array( 'presto_notice' => 'no_selection' ) );
@@ -653,8 +652,7 @@ class Presto_Admin {
 
 		self::require_capability();
 
-		$raw_categories = isset( $_REQUEST['category'] ) ? wp_unslash( $_REQUEST['category'] ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$slugs          = array_filter( array_map( 'sanitize_title', (array) $raw_categories ) );
+		$slugs = isset( $_REQUEST['category'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['category'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
 			self::redirect_to( 'presto-categories', array( 'presto_notice' => 'no_selection' ) );
@@ -687,7 +685,8 @@ class Presto_Admin {
 		self::require_capability();
 		check_admin_referer( 'presto_save_event', 'presto_event_nonce' );
 
-		$original_slug = isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : '';
+		$raw           = wp_unslash( $_POST );
+		$original_slug = isset( $raw['presto_original_slug'] ) ? sanitize_title( $raw['presto_original_slug'] ) : '';
 		$editing       = '' !== $original_slug;
 		$existing      = $editing ? Presto_DB::get_event( $original_slug ) : null;
 
@@ -695,7 +694,7 @@ class Presto_Admin {
 			return new WP_Error( 'presto_missing_event', __( 'The event you tried to update no longer exists.', 'presto' ) );
 		}
 
-		$validated = self::validate_event_submission( $original_slug );
+		$validated = self::validate_event_submission( $original_slug, $raw );
 
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -728,7 +727,8 @@ class Presto_Admin {
 		self::require_capability();
 		check_admin_referer( 'presto_save_category', 'presto_category_nonce' );
 
-		$original_slug = isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : '';
+		$raw           = wp_unslash( $_POST );
+		$original_slug = isset( $raw['presto_original_slug'] ) ? sanitize_title( $raw['presto_original_slug'] ) : '';
 		$editing       = '' !== $original_slug;
 		$existing      = $editing ? Presto_DB::get_category( $original_slug ) : null;
 
@@ -736,7 +736,7 @@ class Presto_Admin {
 			return new WP_Error( 'presto_missing_category', __( 'The category you tried to update no longer exists.', 'presto' ) );
 		}
 
-		$validated = self::validate_category_submission( $original_slug );
+		$validated = self::validate_category_submission( $original_slug, $raw );
 
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -764,11 +764,11 @@ class Presto_Admin {
 	 * Validate event POST data.
 	 *
 	 * @param string $original_slug Existing slug when editing.
+	 * @param array  $raw Unslashed POST data.
 	 * @return array|WP_Error
 	 */
-	private static function validate_event_submission( $original_slug ) {
+	private static function validate_event_submission( $original_slug, array $raw ) {
 		$errors = new WP_Error();
-		$raw    = wp_unslash( $_POST );
 
 		$name               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
 		$location           = isset( $raw['location'] ) ? sanitize_text_field( $raw['location'] ) : '';
@@ -846,11 +846,11 @@ class Presto_Admin {
 	 * Validate category POST data.
 	 *
 	 * @param string $original_slug Existing slug when editing.
+	 * @param array  $raw Unslashed POST data.
 	 * @return array|WP_Error
 	 */
-	private static function validate_category_submission( $original_slug ) {
+	private static function validate_category_submission( $original_slug, array $raw ) {
 		$errors = new WP_Error();
-		$raw    = wp_unslash( $_POST );
 
 		$name  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
 		$slug  = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
@@ -926,7 +926,9 @@ class Presto_Admin {
 			);
 		}
 
-		if ( self::is_post_request( 'presto_event_nonce' ) ) {
+		$event_nonce = isset( $_POST['presto_event_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['presto_event_nonce'] ) ) : '';
+
+		if ( self::is_post_request( 'presto_event_nonce' ) && wp_verify_nonce( $event_nonce, 'presto_save_event' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -966,7 +968,9 @@ class Presto_Admin {
 			);
 		}
 
-		if ( self::is_post_request( 'presto_category_nonce' ) ) {
+		$category_nonce = isset( $_POST['presto_category_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['presto_category_nonce'] ) ) : '';
+
+		if ( self::is_post_request( 'presto_category_nonce' ) && wp_verify_nonce( $category_nonce, 'presto_save_category' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -1132,7 +1136,9 @@ class Presto_Admin {
 	 * @return bool
 	 */
 	private static function is_post_request( $nonce_field ) {
-		return 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST[ $nonce_field ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+
+		return 'post' === $method && isset( $_POST[ $nonce_field ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 	}
 
 	/**

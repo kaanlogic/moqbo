@@ -8,11 +8,11 @@ Stable tag: 1.0.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Presto is a lightweight WordPress calendar plugin with admin event management, responsive frontend shortcodes, categories, and an optional REST API with token support.
+Lightweight calendar with event admin, categories, responsive shortcodes, and an optional token-protected REST API.
 
 == Description ==
 
-Presto adds a event calendar to WordPress without the overhead of a large event-management suite. Create categories, add timed or all-day events, publish a responsive calendar with `[presto]`, retrieve the next date for a named event with `[presto-getdate]`, and optionally expose event data through a controlled REST API.
+Presto adds an event calendar to WordPress without the overhead of a large event-management suite. Create categories, add timed or all-day events, publish a responsive calendar with `[presto]`, retrieve the next date for a named event with `[presto-getdate]`, and optionally expose event data through a controlled REST API.
 
 Features include:
 

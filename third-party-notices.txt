@@ -1,18 +1,43 @@
-# Third-Party Notices
+Third-Party Notices
 
-Presto bundles generated frontend assets in `assets/dist/frontend.js` and `assets/dist/frontend.css`. Those assets include code or styles derived from the npm runtime dependencies listed below. All listed licenses are GPL-compatible.
+Presto bundles generated frontend assets in assets/dist/frontend.js and assets/dist/frontend.css. Those assets include code or styles derived from the npm runtime dependencies listed below. All listed licenses are GPL-compatible.
 
-| Package | Version | License | Copyright / Author |
-| --- | --- | --- | --- |
-| `@schedule-x/calendar` | 4.6.0 | MIT | Tom Österlund |
-| `@schedule-x/theme-default` | 4.6.0 | MIT | Tom Österlund |
-| `@preact/signals` | 2.9.1 | MIT | Copyright (c) 2022-present Preact Team |
-| `@preact/signals-core` | 1.14.2 | MIT | Copyright (c) 2022-present Preact Team |
-| `preact` | 10.29.2 | MIT | Copyright (c) 2015-present Jason Miller |
-| `temporal-polyfill` | 0.3.0 | MIT | Copyright (c) 2024 Adam Shaw |
-| `temporal-spec` | 0.3.0 | ISC | Copyright 2017, 2018, 2019, 2020 ECMA International |
+Package: @schedule-x/calendar
+Version: 4.6.0
+License: MIT
+Copyright / Author: Tom Osterlund
 
-## MIT License Text
+Package: @schedule-x/theme-default
+Version: 4.6.0
+License: MIT
+Copyright / Author: Tom Osterlund
+
+Package: @preact/signals
+Version: 2.9.1
+License: MIT
+Copyright / Author: Copyright (c) 2022-present Preact Team
+
+Package: @preact/signals-core
+Version: 1.14.2
+License: MIT
+Copyright / Author: Copyright (c) 2022-present Preact Team
+
+Package: preact
+Version: 10.29.2
+License: MIT
+Copyright / Author: Copyright (c) 2015-present Jason Miller
+
+Package: temporal-polyfill
+Version: 0.3.0
+License: MIT
+Copyright / Author: Copyright (c) 2024 Adam Shaw
+
+Package: temporal-spec
+Version: 0.3.0
+License: ISC
+Copyright / Author: Copyright 2017, 2018, 2019, 2020 ECMA International
+
+MIT License Text
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -31,7 +56,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-## ISC License Text
+ISC License Text
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice

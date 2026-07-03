@@ -390,14 +390,14 @@ class Presto_API {
 	 * @return string
 	 */
 	private static function get_authorization_token( $request ) {
-		$header = $request->get_header( 'authorization' );
+		$header = sanitize_text_field( (string) $request->get_header( 'authorization' ) );
 
 		if ( '' === $header && isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
-			$header = wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] );
+			$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ) );
 		}
 
 		if ( '' === $header && isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
-			$header = wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] );
+			$header = sanitize_text_field( wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
 		}
 
 		$header = trim( (string) $header );
