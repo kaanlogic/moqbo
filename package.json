@@ -5,8 +5,8 @@
     "license": "GPL-3.0-or-later",
     "scripts": {
         "format": "prettier --write .",
-        "build": "esbuild src/frontend.js --bundle --format=iife --global-name=PrestoBundle --target=es2020 --outfile=assets/dist/frontend.js --legal-comments=eof --banner:js=\"/*! Third-party notices: see ../../THIRD-PARTY-NOTICES.md. */\" --banner:css=\"/*! Third-party notices: see ../../THIRD-PARTY-NOTICES.md. */\"",
-        "zip": "npm run build && wp --allow-root dist-archive . ../presto.zip --plugin-dirname=presto --force"
+        "build": "esbuild src/frontend.js --bundle --format=iife --global-name=PrestoBundle --target=es2020 --outfile=assets/dist/frontend.js --legal-comments=eof --banner:js=\"/*! Third-party notices: see ../../third-party-notices.md. */\" --banner:css=\"/*! Third-party notices: see ../../third-party-notices.md. */\"",
+        "zip": "wp --allow-root dist-archive . ../presto.zip --plugin-dirname=presto --force"
     },
     "dependencies": {
         "@schedule-x/calendar": "^4.6.0",

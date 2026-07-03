@@ -1,4 +1,4 @@
-/*! Third-party notices: see ../../THIRD-PARTY-NOTICES.md. */
+/*! Third-party notices: see ../../third-party-notices.md. */
 var PrestoBundle = (() => {
   // node_modules/preact/dist/preact.module.js
   var n;
