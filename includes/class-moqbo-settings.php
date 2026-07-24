@@ -2,7 +2,7 @@
 /**
  * Plugin settings accessors.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,28 +10,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Presto settings storage and feature flags.
+ * Moqbo settings storage and feature flags.
  */
-class Presto_Settings {
+class Moqbo_Settings {
 	/**
-	 * Option name used to store Presto settings.
+	 * Option name used to store Moqbo settings.
 	 */
-	const OPTION_NAME = 'presto_settings';
+	const OPTION_NAME = 'moqbo_settings';
 
 	/**
-	 * Feature flag for the [presto] shortcode.
+	 * Feature flag for the [moqbo] shortcode.
 	 */
-	const FEATURE_PRESTO_SHORTCODE = 'presto_shortcode';
+	const FEATURE_MOQBO_SHORTCODE = 'moqbo_shortcode';
 
 	/**
-	 * Feature flag for the [presto-getdate] shortcode.
+	 * Feature flag for the [moqbo-getdate] shortcode.
 	 */
-	const FEATURE_PRESTO_GETDATE_SHORTCODE = 'presto_getdate_shortcode';
+	const FEATURE_MOQBO_GETDATE_SHORTCODE = 'moqbo_getdate_shortcode';
 
 	/**
-	 * Feature flag for the Presto API.
+	 * Feature flag for the Moqbo API.
 	 */
-	const FEATURE_API = 'presto_api';
+	const FEATURE_API = 'moqbo_api';
 
 	/**
 	 * API setting for requiring token authentication.
@@ -70,8 +70,8 @@ class Presto_Settings {
 	 */
 	public static function defaults() {
 		return array(
-			self::FEATURE_PRESTO_SHORTCODE         => true,
-			self::FEATURE_PRESTO_GETDATE_SHORTCODE => true,
+			self::FEATURE_MOQBO_SHORTCODE         => true,
+			self::FEATURE_MOQBO_GETDATE_SHORTCODE => true,
 			self::FEATURE_API                      => true,
 			self::API_AUTH_REQUIRED                => false,
 			self::API_TOKEN                        => '',
@@ -89,8 +89,8 @@ class Presto_Settings {
 	 */
 	private static function boolean_keys() {
 		return array(
-			self::FEATURE_PRESTO_SHORTCODE,
-			self::FEATURE_PRESTO_GETDATE_SHORTCODE,
+			self::FEATURE_MOQBO_SHORTCODE,
+			self::FEATURE_MOQBO_GETDATE_SHORTCODE,
 			self::FEATURE_API,
 			self::API_AUTH_REQUIRED,
 			self::API_GET_EVENTS_ENABLED,

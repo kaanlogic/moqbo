@@ -189,7 +189,7 @@ function eventToScheduleX(event) {
         location: event.location,
         calendarId: event.calendarId,
         options: event.options || { disableDND: true, disableResize: true },
-        prestoModal: event.modal
+        moqboModal: event.modal
     };
 
     if (event.allDay) {
@@ -205,7 +205,7 @@ function eventToScheduleX(event) {
 }
 
 function writeText(modal, key, value) {
-    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
+    const element = modal.querySelector('[data-moqbo-modal-field="' + key + '"]');
 
     if (element) {
         element.textContent = value || "";
@@ -213,7 +213,7 @@ function writeText(modal, key, value) {
 }
 
 function writeOptionalText(modal, key, value) {
-    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
+    const element = modal.querySelector('[data-moqbo-modal-field="' + key + '"]');
 
     if (!element) {
         return;
@@ -225,7 +225,7 @@ function writeOptionalText(modal, key, value) {
 }
 
 function setCategorySwatch(modal, color) {
-    const swatch = modal.querySelector('[data-presto-modal-field="categoryColor"]');
+    const swatch = modal.querySelector('[data-moqbo-modal-field="categoryColor"]');
 
     if (swatch) {
         swatch.style.backgroundColor = color || "#2271b1";
@@ -339,7 +339,7 @@ function closeEventPopover(modal, restoreFocus = true) {
 function renderError(container, message) {
     container.innerHTML = "";
     const error = document.createElement("div");
-    error.className = "presto-calendar-error";
+    error.className = "moqbo-calendar-error";
     error.textContent = message;
     container.appendChild(error);
 }
@@ -373,7 +373,7 @@ function initInstance(instance) {
             monthAgenda: monthAgenda.name
         };
         const events = (instance.config.events || []).map(eventToScheduleX);
-        const eventModals = new Map(events.map((event) => [String(event.id), event.prestoModal]));
+        const eventModals = new Map(events.map((event) => [String(event.id), event.moqboModal]));
         let scheduleXApp = null;
 
         const calendar = createCalendar({
@@ -394,7 +394,7 @@ function initInstance(instance) {
                 isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
                 onEventClick: (payload, uiEvent) => {
                     const clickedEvent = payload && payload.event ? payload.event : payload;
-                    const eventModal = clickedEvent && clickedEvent.prestoModal ? clickedEvent.prestoModal : eventModals.get(String(clickedEvent && clickedEvent.id));
+                    const eventModal = clickedEvent && clickedEvent.moqboModal ? clickedEvent.moqboModal : eventModals.get(String(clickedEvent && clickedEvent.id));
 
                     openEventPopover(modal, eventModal, uiEvent);
                 },
@@ -415,12 +415,12 @@ function initInstance(instance) {
     }
     catch (error) {
         renderError(container, instance.i18n.loadError);
-        console.error("Presto calendar failed to initialize.", error);
+        console.error("Moqbo calendar failed to initialize.", error);
     }
 }
 
 function initCalendars() {
-    (window.PrestoCalendars || []).forEach(initInstance);
+    (window.MoqboCalendars || []).forEach(initInstance);
 }
 
 document.addEventListener("keydown", (event) => {

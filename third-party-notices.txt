@@ -1,6 +1,6 @@
 Third-Party Notices
 
-Presto bundles generated frontend assets in assets/dist/frontend.js and assets/dist/frontend.css. Those assets include code or styles derived from the npm runtime dependencies listed below. All listed licenses are GPL-compatible.
+Moqbo bundles generated frontend assets in assets/dist/frontend.js and assets/dist/frontend.css. Those assets include code or styles derived from the npm runtime dependencies listed below. All listed licenses are GPL-compatible.
 
 Package: @schedule-x/calendar
 Version: 4.6.0

@@ -2,7 +2,7 @@
 /**
  * Database schema and persistence helpers.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,13 +10,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Database access layer for Presto.
+ * Database access layer for Moqbo.
  */
-class Presto_DB {
+class Moqbo_DB {
 	/**
-	 * Object cache group for Presto query results.
+	 * Object cache group for Moqbo query results.
 	 */
-	const CACHE_GROUP = 'presto';
+	const CACHE_GROUP = 'moqbo';
 
 	/**
 	 * Object cache key for cache generation invalidation.
@@ -53,7 +53,7 @@ class Presto_DB {
 	 * Run schema migrations when the stored DB version lags the plugin.
 	 */
 	public static function maybe_upgrade() {
-		if ( get_option( 'presto_db_version' ) !== PRESTO_DB_VERSION ) {
+		if ( get_option( 'moqbo_db_version' ) !== MOQBO_DB_VERSION ) {
 			self::create_schema();
 		}
 	}
@@ -66,7 +66,7 @@ class Presto_DB {
 	public static function events_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'presto_events';
+		return $wpdb->prefix . 'moqbo_events';
 	}
 
 	/**
@@ -77,7 +77,7 @@ class Presto_DB {
 	public static function categories_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'presto_categories';
+		return $wpdb->prefix . 'moqbo_categories';
 	}
 
 	/**
@@ -124,12 +124,12 @@ class Presto_DB {
 		dbDelta( $categories_sql );
 		self::reorder_events_columns();
 
-		update_option( 'presto_db_version', PRESTO_DB_VERSION );
+		update_option( 'moqbo_db_version', MOQBO_DB_VERSION );
 		self::flush_cache();
 	}
 
 	/**
-	 * Reorder existing event columns to match Presto's admin field flow.
+	 * Reorder existing event columns to match Moqbo's admin field flow.
 	 */
 	private static function reorder_events_columns() {
 		global $wpdb;
@@ -182,7 +182,7 @@ class Presto_DB {
 		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::events_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
 		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::categories_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
 
-		delete_option( 'presto_db_version' );
+		delete_option( 'moqbo_db_version' );
 		self::flush_cache();
 	}
 
@@ -202,7 +202,7 @@ class Presto_DB {
 			return $cached;
 		}
 
-		$category = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
+		$category = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
 			$wpdb->prepare( 'SELECT * FROM %i WHERE slug = %s', self::categories_table(), $slug ),
 			ARRAY_A
 		);
@@ -247,7 +247,7 @@ class Presto_DB {
 		$sql    = 'SELECT COUNT(*) FROM %i WHERE ' . implode( ' AND ', $where );
 		$params = array_merge( array( self::categories_table() ), $params );
 		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
-		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
 
@@ -316,7 +316,7 @@ class Presto_DB {
 		}
 
 		$query      = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
-		$categories = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+		$categories = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $categories, self::CACHE_GROUP );
 
@@ -413,7 +413,7 @@ class Presto_DB {
 			return (int) $cached;
 		}
 
-		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
+		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
 			$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE category_slug = %s', self::events_table(), $slug )
 		);
 
@@ -472,7 +472,7 @@ class Presto_DB {
 			return $cached;
 		}
 
-		$event = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Presto cache group.
+		$event = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
 			$wpdb->prepare(
 				'SELECT e.*, c.name AS category_name, c.color AS category_color
 				FROM %i e
@@ -571,7 +571,7 @@ class Presto_DB {
 			WHERE ' . implode( ' AND ', $where );
 		$params = array_merge( array( self::events_table(), self::categories_table() ), $params );
 		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
-		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
 
@@ -664,7 +664,7 @@ class Presto_DB {
 		}
 
 		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
-		$events = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Presto cache group.
+		$events = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $events, self::CACHE_GROUP );
 
@@ -786,7 +786,7 @@ class Presto_DB {
 			$payload = serialize( $parts ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Cache key fallback for non-JSON-encodable values.
 		}
 
-		return 'presto_' . md5( $payload );
+		return 'moqbo_' . md5( $payload );
 	}
 
 	/**
@@ -806,7 +806,7 @@ class Presto_DB {
 	}
 
 	/**
-	 * Invalidate cached Presto query results.
+	 * Invalidate cached Moqbo query results.
 	 */
 	private static function flush_cache() {
 		wp_cache_set( self::CACHE_LAST_CHANGED_KEY, microtime(), self::CACHE_GROUP );

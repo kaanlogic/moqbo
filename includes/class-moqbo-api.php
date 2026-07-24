@@ -1,8 +1,8 @@
 <?php
 /**
- * Presto API registration.
+ * Moqbo API registration.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,13 +10,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Presto API endpoint registration.
+ * Moqbo API endpoint registration.
  */
-class Presto_API {
+class Moqbo_API {
 	/**
 	 * REST API namespace.
 	 */
-	const REST_NAMESPACE = 'presto/v1';
+	const REST_NAMESPACE = 'moqbo/v1';
 
 	/**
 	 * Register API hooks.
@@ -77,9 +77,9 @@ class Presto_API {
 	public static function get_events_permissions_check( $request ) {
 		return self::endpoint_permissions_check(
 			$request,
-			Presto_Settings::API_GET_EVENTS_ENABLED,
-			'presto_api_get_events_disabled',
-			__( 'The Presto events GET endpoint is disabled.', 'presto' )
+			Moqbo_Settings::API_GET_EVENTS_ENABLED,
+			'moqbo_api_get_events_disabled',
+			__( 'The Moqbo events GET endpoint is disabled.', 'moqbo' )
 		);
 	}
 
@@ -92,9 +92,9 @@ class Presto_API {
 	public static function create_event_permissions_check( $request ) {
 		return self::endpoint_permissions_check(
 			$request,
-			Presto_Settings::API_POST_EVENTS_ENABLED,
-			'presto_api_post_events_disabled',
-			__( 'The Presto events POST endpoint is disabled.', 'presto' )
+			Moqbo_Settings::API_POST_EVENTS_ENABLED,
+			'moqbo_api_post_events_disabled',
+			__( 'The Moqbo events POST endpoint is disabled.', 'moqbo' )
 		);
 	}
 
@@ -107,9 +107,9 @@ class Presto_API {
 	public static function get_categories_permissions_check( $request ) {
 		return self::endpoint_permissions_check(
 			$request,
-			Presto_Settings::API_GET_CATEGORIES_ENABLED,
-			'presto_api_get_categories_disabled',
-			__( 'The Presto categories GET endpoint is disabled.', 'presto' )
+			Moqbo_Settings::API_GET_CATEGORIES_ENABLED,
+			'moqbo_api_get_categories_disabled',
+			__( 'The Moqbo categories GET endpoint is disabled.', 'moqbo' )
 		);
 	}
 
@@ -122,9 +122,9 @@ class Presto_API {
 	public static function create_category_permissions_check( $request ) {
 		return self::endpoint_permissions_check(
 			$request,
-			Presto_Settings::API_POST_CATEGORIES_ENABLED,
-			'presto_api_post_categories_disabled',
-			__( 'The Presto categories POST endpoint is disabled.', 'presto' )
+			Moqbo_Settings::API_POST_CATEGORIES_ENABLED,
+			'moqbo_api_post_categories_disabled',
+			__( 'The Moqbo categories POST endpoint is disabled.', 'moqbo' )
 		);
 	}
 
@@ -143,8 +143,8 @@ class Presto_API {
 
 		if ( '' === $start_date || '' === $end_date ) {
 			return new WP_Error(
-				'presto_missing_date_range',
-				__( 'Start date and end date are required.', 'presto' ),
+				'moqbo_missing_date_range',
+				__( 'Start date and end date are required.', 'moqbo' ),
 				array(
 					'status' => 400,
 					'params' => array( 'start_date', 'end_date' ),
@@ -154,21 +154,21 @@ class Presto_API {
 
 		if ( ! $start || ! $end ) {
 			return new WP_Error(
-				'presto_invalid_date',
-				__( 'Start date and end date must use YYYY-MM-DD format.', 'presto' ),
+				'moqbo_invalid_date',
+				__( 'Start date and end date must use YYYY-MM-DD format.', 'moqbo' ),
 				array( 'status' => 400 )
 			);
 		}
 
 		if ( $end < $start ) {
 			return new WP_Error(
-				'presto_invalid_date_range',
-				__( 'End date must be on or after start date.', 'presto' ),
+				'moqbo_invalid_date_range',
+				__( 'End date must be on or after start date.', 'moqbo' ),
 				array( 'status' => 400 )
 			);
 		}
 
-		$events = Presto_DB::get_events(
+		$events = Moqbo_DB::get_events(
 			array(
 				'start_date' => $start_date,
 				'end_date'   => $end_date,
@@ -197,15 +197,15 @@ class Presto_API {
 		$validated['created_at'] = $now;
 		$validated['updated_at'] = $now;
 
-		if ( ! Presto_DB::insert_event( $validated ) ) {
+		if ( ! Moqbo_DB::insert_event( $validated ) ) {
 			return new WP_Error(
-				'presto_save_event_failed',
-				__( 'The event could not be saved.', 'presto' ),
+				'moqbo_save_event_failed',
+				__( 'The event could not be saved.', 'moqbo' ),
 				array( 'status' => 500 )
 			);
 		}
 
-		$event    = Presto_DB::get_event( $validated['slug'] );
+		$event    = Moqbo_DB::get_event( $validated['slug'] );
 		$response = rest_ensure_response( self::prepare_event( $event ? $event : $validated ) );
 		$response->set_status( 201 );
 
@@ -219,7 +219,7 @@ class Presto_API {
 	 * @return WP_REST_Response
 	 */
 	public static function get_categories( $request ) {
-		$categories = Presto_DB::get_categories(
+		$categories = Moqbo_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
@@ -246,15 +246,15 @@ class Presto_API {
 		$validated['created_at'] = $now;
 		$validated['updated_at'] = $now;
 
-		if ( ! Presto_DB::insert_category( $validated ) ) {
+		if ( ! Moqbo_DB::insert_category( $validated ) ) {
 			return new WP_Error(
-				'presto_save_category_failed',
-				__( 'The category could not be saved.', 'presto' ),
+				'moqbo_save_category_failed',
+				__( 'The category could not be saved.', 'moqbo' ),
 				array( 'status' => 500 )
 			);
 		}
 
-		$category = Presto_DB::get_category( $validated['slug'] );
+		$category = Moqbo_DB::get_category( $validated['slug'] );
 		$response = rest_ensure_response( self::prepare_category( $category ? $category : $validated ) );
 		$response->set_status( 201 );
 
@@ -304,18 +304,18 @@ class Presto_API {
 	}
 
 	/**
-	 * Check whether the Presto API feature is enabled.
+	 * Check whether the Moqbo API feature is enabled.
 	 *
 	 * @return true|WP_Error
 	 */
 	private static function base_permissions_check() {
-		if ( Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_API ) ) {
+		if ( Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_API ) ) {
 			return true;
 		}
 
 		return new WP_Error(
-			'presto_api_disabled',
-			__( 'The Presto API is disabled.', 'presto' ),
+			'moqbo_api_disabled',
+			__( 'The Moqbo API is disabled.', 'moqbo' ),
 			array( 'status' => 403 )
 		);
 	}
@@ -336,7 +336,7 @@ class Presto_API {
 			return $permission;
 		}
 
-		if ( ! Presto_Settings::is_feature_enabled( $endpoint_setting ) ) {
+		if ( ! Moqbo_Settings::is_feature_enabled( $endpoint_setting ) ) {
 			return new WP_Error(
 				$disabled_code,
 				$disabled_message,
@@ -354,16 +354,16 @@ class Presto_API {
 	 * @return true|WP_Error
 	 */
 	private static function authentication_check( $request ) {
-		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::API_AUTH_REQUIRED ) ) {
+		if ( ! Moqbo_Settings::is_feature_enabled( Moqbo_Settings::API_AUTH_REQUIRED ) ) {
 			return true;
 		}
 
-		$expected_token = Presto_Settings::get_api_token();
+		$expected_token = Moqbo_Settings::get_api_token();
 
 		if ( '' === $expected_token ) {
 			return new WP_Error(
-				'presto_api_token_not_configured',
-				__( 'Presto API authentication is enabled, but no token is configured.', 'presto' ),
+				'moqbo_api_token_not_configured',
+				__( 'Moqbo API authentication is enabled, but no token is configured.', 'moqbo' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -372,8 +372,8 @@ class Presto_API {
 
 		if ( '' === $provided_token || ! hash_equals( $expected_token, $provided_token ) ) {
 			return new WP_Error(
-				'presto_api_invalid_token',
-				__( 'A valid Presto API token is required.', 'presto' ),
+				'moqbo_api_invalid_token',
+				__( 'A valid Moqbo API token is required.', 'moqbo' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -417,12 +417,12 @@ class Presto_API {
 	private static function get_events_args() {
 		return array(
 			'start_date' => array(
-				'description'       => __( 'Start date (YYYY-MM-DD)', 'presto' ),
+				'description'       => __( 'Start date (YYYY-MM-DD)', 'moqbo' ),
 				'type'              => 'string',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
 			),
 			'end_date'   => array(
-				'description'       => __( 'End date (YYYY-MM-DD)', 'presto' ),
+				'description'       => __( 'End date (YYYY-MM-DD)', 'moqbo' ),
 				'type'              => 'string',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
 			),
@@ -437,43 +437,43 @@ class Presto_API {
 	private static function create_event_args() {
 		return array(
 			'name'               => array(
-				'description'       => __( 'Event name', 'presto' ),
+				'description'       => __( 'Event name', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'slug'               => array(
-				'description'       => __( 'Event slug', 'presto' ),
+				'description'       => __( 'Event slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => 'sanitize_title',
 			),
 			'location'           => array(
-				'description'       => __( 'Event location', 'presto' ),
+				'description'       => __( 'Event location', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'category_slug'      => array(
-				'description'       => __( 'Existing event category slug', 'presto' ),
+				'description'       => __( 'Existing event category slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => 'sanitize_title',
 			),
 			'description'        => array(
-				'description'       => __( 'Event description', 'presto' ),
+				'description'       => __( 'Event description', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_textarea_arg' ),
 			),
 			'start_at'           => array(
-				'description'       => __( 'Start date (YYYY-MM-DD HH:MM:SS)', 'presto' ),
+				'description'       => __( 'Start date (YYYY-MM-DD HH:MM:SS)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'end_at'             => array(
-				'description'       => __( 'End date (YYYY-MM-DD HH:MM:SS)', 'presto' ),
+				'description'       => __( 'End date (YYYY-MM-DD HH:MM:SS)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
@@ -498,19 +498,19 @@ class Presto_API {
 	private static function create_category_args() {
 		return array(
 			'name'  => array(
-				'description'       => __( 'Category name', 'presto' ),
+				'description'       => __( 'Category name', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'slug'  => array(
-				'description'       => __( 'Category slug', 'presto' ),
+				'description'       => __( 'Category slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => 'sanitize_title',
 			),
 			'color' => array(
-				'description'       => __( 'Category color (Hex)', 'presto' ),
+				'description'       => __( 'Category color (Hex)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
 				'sanitize_callback' => 'sanitize_hex_color',
@@ -531,21 +531,21 @@ class Presto_API {
 		$location = self::sanitize_text_arg( $request->get_param( 'location' ) );
 
 		if ( '' === $name ) {
-			self::add_validation_error( $errors, 'missing_name', __( 'Event name is required.', 'presto' ) );
+			self::add_validation_error( $errors, 'missing_name', __( 'Event name is required.', 'moqbo' ) );
 		}
 
 		if ( '' === $slug ) {
-			self::add_validation_error( $errors, 'missing_slug', __( 'Event slug is required.', 'presto' ) );
+			self::add_validation_error( $errors, 'missing_slug', __( 'Event slug is required.', 'moqbo' ) );
 		}
 
-		if ( '' !== $slug && Presto_DB::get_event( $slug ) ) {
-			self::add_validation_error( $errors, 'duplicate_slug', __( 'An event with this slug already exists.', 'presto' ) );
+		if ( '' !== $slug && Moqbo_DB::get_event( $slug ) ) {
+			self::add_validation_error( $errors, 'duplicate_slug', __( 'An event with this slug already exists.', 'moqbo' ) );
 		}
 
 		$category_slug = sanitize_title( (string) $request->get_param( 'category_slug' ) );
 
-		if ( '' === $category_slug || ! Presto_DB::get_category( $category_slug ) ) {
-			self::add_validation_error( $errors, 'missing_category', __( 'Choose an existing event category.', 'presto' ) );
+		if ( '' === $category_slug || ! Moqbo_DB::get_category( $category_slug ) ) {
+			self::add_validation_error( $errors, 'missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
 		}
 
 		$datetime_range = self::validate_event_datetime_range( $request->get_param( 'start_at' ), $request->get_param( 'end_at' ) );
@@ -583,19 +583,19 @@ class Presto_API {
 		$color  = sanitize_hex_color( (string) $request->get_param( 'color' ) );
 
 		if ( '' === $name ) {
-			self::add_validation_error( $errors, 'missing_name', __( 'Category name is required.', 'presto' ) );
+			self::add_validation_error( $errors, 'missing_name', __( 'Category name is required.', 'moqbo' ) );
 		}
 
 		if ( '' === $slug ) {
-			self::add_validation_error( $errors, 'missing_slug', __( 'Category slug is required.', 'presto' ) );
+			self::add_validation_error( $errors, 'missing_slug', __( 'Category slug is required.', 'moqbo' ) );
 		}
 
-		if ( '' !== $slug && Presto_DB::get_category( $slug ) ) {
-			self::add_validation_error( $errors, 'duplicate_slug', __( 'A category with this slug already exists.', 'presto' ) );
+		if ( '' !== $slug && Moqbo_DB::get_category( $slug ) ) {
+			self::add_validation_error( $errors, 'duplicate_slug', __( 'A category with this slug already exists.', 'moqbo' ) );
 		}
 
 		if ( ! $color || ! preg_match( '/^#[0-9A-Fa-f]{6}$/', $color ) ) {
-			self::add_validation_error( $errors, 'invalid_color', __( 'Choose a valid hex color.', 'presto' ) );
+			self::add_validation_error( $errors, 'invalid_color', __( 'Choose a valid hex color.', 'moqbo' ) );
 		}
 
 		if ( $errors->has_errors() ) {
@@ -664,8 +664,8 @@ class Presto_API {
 	 */
 	private static function validate_event_datetime_range( $start_value, $end_value ) {
 		$errors  = new WP_Error();
-		$start   = self::validate_local_datetime_arg( $start_value, __( 'Start', 'presto' ) );
-		$end     = self::validate_local_datetime_arg( $end_value, __( 'End', 'presto' ) );
+		$start   = self::validate_local_datetime_arg( $start_value, __( 'Start', 'moqbo' ) );
+		$end     = self::validate_local_datetime_arg( $end_value, __( 'End', 'moqbo' ) );
 		$all_day = false;
 
 		if ( is_wp_error( $start ) ) {
@@ -680,11 +680,11 @@ class Presto_API {
 			$all_day = self::is_all_day_range( $start, $end );
 
 			if ( $all_day && $end < $start ) {
-				self::add_validation_error( $errors, 'end_before_start', __( 'End date cannot be earlier than the start date.', 'presto' ) );
+				self::add_validation_error( $errors, 'end_before_start', __( 'End date cannot be earlier than the start date.', 'moqbo' ) );
 			}
 
 			if ( ! $all_day && $end <= $start ) {
-				self::add_validation_error( $errors, 'end_before_start', __( 'Timed events must end after they start.', 'presto' ) );
+				self::add_validation_error( $errors, 'end_before_start', __( 'Timed events must end after they start.', 'moqbo' ) );
 			}
 		}
 
@@ -727,7 +727,7 @@ class Presto_API {
 				'invalid_datetime_format',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date/time must use YYYY-MM-DD HH:MM:SS format.', 'presto' ),
+					__( '%s date/time must use YYYY-MM-DD HH:MM:SS format.', 'moqbo' ),
 					$label
 				)
 			);
@@ -745,7 +745,7 @@ class Presto_API {
 				'invalid_datetime',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date/time is not valid in the sites timezone.', 'presto' ),
+					__( '%s date/time is not valid in the sites timezone.', 'moqbo' ),
 					$label
 				),
 				array( 'status' => 400 )

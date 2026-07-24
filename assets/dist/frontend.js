@@ -1,5 +1,5 @@
 /*! Third-party notices: see ../../third-party-notices.txt. */
-var PrestoBundle = (() => {
+var MoqboBundle = (() => {
   // node_modules/preact/dist/preact.module.js
   var n;
   var l;
@@ -11611,7 +11611,7 @@ var PrestoBundle = (() => {
       location: event.location,
       calendarId: event.calendarId,
       options: event.options || { disableDND: true, disableResize: true },
-      prestoModal: event.modal
+      moqboModal: event.modal
     };
     if (event.allDay) {
       scheduleEvent.start = Temporal.PlainDate.from(event.startDate);
@@ -11623,13 +11623,13 @@ var PrestoBundle = (() => {
     return scheduleEvent;
   }
   function writeText(modal, key, value) {
-    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
+    const element = modal.querySelector('[data-moqbo-modal-field="' + key + '"]');
     if (element) {
       element.textContent = value || "";
     }
   }
   function writeOptionalText(modal, key, value) {
-    const element = modal.querySelector('[data-presto-modal-field="' + key + '"]');
+    const element = modal.querySelector('[data-moqbo-modal-field="' + key + '"]');
     if (!element) {
       return;
     }
@@ -11638,7 +11638,7 @@ var PrestoBundle = (() => {
     element.hidden = !text;
   }
   function setCategorySwatch(modal, color) {
-    const swatch = modal.querySelector('[data-presto-modal-field="categoryColor"]');
+    const swatch = modal.querySelector('[data-moqbo-modal-field="categoryColor"]');
     if (swatch) {
       swatch.style.backgroundColor = color || "#2271b1";
     }
@@ -11730,7 +11730,7 @@ var PrestoBundle = (() => {
   function renderError(container, message) {
     container.innerHTML = "";
     const error = document.createElement("div");
-    error.className = "presto-calendar-error";
+    error.className = "moqbo-calendar-error";
     error.textContent = message;
     container.appendChild(error);
   }
@@ -11759,7 +11759,7 @@ var PrestoBundle = (() => {
         monthAgenda: monthAgenda.name
       };
       const events = (instance.config.events || []).map(eventToScheduleX);
-      const eventModals = new Map(events.map((event) => [String(event.id), event.prestoModal]));
+      const eventModals = new Map(events.map((event) => [String(event.id), event.moqboModal]));
       let scheduleXApp = null;
       const calendar = createCalendar({
         views: [week, weekAgenda, monthGrid, monthAgenda],
@@ -11779,7 +11779,7 @@ var PrestoBundle = (() => {
           isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
           onEventClick: (payload, uiEvent) => {
             const clickedEvent = payload && payload.event ? payload.event : payload;
-            const eventModal = clickedEvent && clickedEvent.prestoModal ? clickedEvent.prestoModal : eventModals.get(String(clickedEvent && clickedEvent.id));
+            const eventModal = clickedEvent && clickedEvent.moqboModal ? clickedEvent.moqboModal : eventModals.get(String(clickedEvent && clickedEvent.id));
             openEventPopover(modal, eventModal, uiEvent);
           },
           onRender: ($app) => {
@@ -11797,11 +11797,11 @@ var PrestoBundle = (() => {
       setupWeekGridSizing(container, dayBoundaries, WEEK_GRID_STEP);
     } catch (error) {
       renderError(container, instance.i18n.loadError);
-      console.error("Presto calendar failed to initialize.", error);
+      console.error("Moqbo calendar failed to initialize.", error);
     }
   }
   function initCalendars() {
-    (window.PrestoCalendars || []).forEach(initInstance);
+    (window.MoqboCalendars || []).forEach(initInstance);
   }
   document.addEventListener("keydown", (event) => {
     if ("Escape" === event.key && activeModal) {

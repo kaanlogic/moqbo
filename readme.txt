@@ -1,4 +1,4 @@
-=== Presto – Lightweight Calendar ===
+=== Moqbo – Lightweight Calendar ===
 Contributors: kaanlogic
 Tags: calendar, events, event calendar, rest api, shortcode
 Requires at least: 6.5
@@ -12,7 +12,7 @@ Lightweight calendar with event admin, categories, responsive shortcodes, and an
 
 == Description ==
 
-Presto adds an event calendar to WordPress without the overhead of a large event-management suite. Create categories, add timed or all-day events, publish a responsive calendar with `[presto]`, retrieve the next date for a named event with `[presto-getdate]`, and optionally expose event data through a controlled REST API.
+Moqbo adds an event calendar to WordPress without the overhead of a large event-management suite. Create categories, add timed or all-day events, publish a responsive calendar with `[moqbo]`, retrieve the next date for a named event with `[moqbo-getdate]`, and optionally expose event data through a controlled REST API.
 
 Features include:
 
@@ -24,15 +24,15 @@ Features include:
 * Optional REST API with per-endpoint feature toggles
 * Optional token authentication for API requests
 
-Presto loads frontend calendar assets only when the `[presto]` shortcode is detected or rendered, so pages without a calendar do not carry the calendar bundle.
+Moqbo loads frontend calendar assets only when the `[moqbo]` shortcode is detected or rendered, so pages without a calendar do not carry the calendar bundle.
 
 == Installation ==
 
-1. Upload the `presto` folder to `/wp-content/plugins/`, or install it through the WordPress Plugins screen.
-2. Activate Presto from the Plugins screen.
-3. Go to Presto > Categories and create at least one event category.
-4. Go to Presto > Add Event and create an event.
-5. Add `[presto]` to any post or page where the calendar should appear.
+1. Upload the `moqbo` folder to `/wp-content/plugins/`, or install it through the WordPress Plugins screen.
+2. Activate Moqbo from the Plugins screen.
+3. Go to Moqbo > Categories and create at least one event category.
+4. Go to Moqbo > Add Event and create an event.
+5. Add `[moqbo]` to any post or page where the calendar should appear.
 
 == Usage ==
 
@@ -40,34 +40,34 @@ Presto loads frontend calendar assets only when the `[presto]` shortcode is dete
 
 Add this shortcode to a post or page:
 
-`[presto]`
+`[moqbo]`
 
 = Display the next date for a matching event =
 
 Add this shortcode and replace the name value with part or all of an event name:
 
-`[presto-getdate name="Office Hours"]`
+`[moqbo-getdate name="Office Hours"]`
 
-If no upcoming event matches, Presto returns `n/a`.
+If no upcoming event matches, Moqbo returns `n/a`.
 
 = Configure features =
 
-Go to Presto > Settings to enable or disable the calendar shortcode, date shortcode, REST API, individual REST endpoint methods, and API token authentication.
+Go to Moqbo > Settings to enable or disable the calendar shortcode, date shortcode, REST API, individual REST endpoint methods, and API token authentication.
 
 By default, the calendar shortcode, date shortcode, API, and GET endpoints are enabled. Token authentication and POST endpoints are disabled by default.
 
 == REST API ==
 
-Presto registers REST API routes under the `presto/v1` namespace.
+Moqbo registers REST API routes under the `moqbo/v1` namespace.
 
 Available endpoints:
 
-* `GET /wp-json/presto/v1/events`
-* `POST /wp-json/presto/v1/events`
-* `GET /wp-json/presto/v1/categories`
-* `POST /wp-json/presto/v1/categories`
+* `GET /wp-json/moqbo/v1/events`
+* `POST /wp-json/moqbo/v1/events`
+* `GET /wp-json/moqbo/v1/categories`
+* `POST /wp-json/moqbo/v1/categories`
 
-Each endpoint method can be enabled or disabled from Presto > Settings.
+Each endpoint method can be enabled or disabled from Moqbo > Settings.
 
 = Authentication =
 
@@ -81,7 +81,7 @@ Accepted authorization formats:
 
 = Events =
 
-`GET /wp-json/presto/v1/events` returns events that overlap a date range.
+`GET /wp-json/moqbo/v1/events` returns events that overlap a date range.
 
 Required query parameters:
 
@@ -90,11 +90,11 @@ Required query parameters:
 
 Example:
 
-`/wp-json/presto/v1/events?start_date=2026-01-01&end_date=2026-01-31`
+`/wp-json/moqbo/v1/events?start_date=2026-01-01&end_date=2026-01-31`
 
 Event responses include `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, and `end_at`.
 
-`POST /wp-json/presto/v1/events` creates an event.
+`POST /wp-json/moqbo/v1/events` creates an event.
 
 Required fields are `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, and `end_at`. The `category_slug` must reference an existing category. Event slugs must be unique.
 
@@ -112,11 +112,11 @@ Example request body:
 
 = Categories =
 
-`GET /wp-json/presto/v1/categories` returns categories sorted by name.
+`GET /wp-json/moqbo/v1/categories` returns categories sorted by name.
 
 Category responses include `name`, `slug`, `color`, and `event_count`.
 
-`POST /wp-json/presto/v1/categories` creates a category.
+`POST /wp-json/moqbo/v1/categories` creates a category.
 
 Required fields are `name`, `slug`, and `color`. Category slugs must be unique. The `color` value must be a six-character hex color, such as `#2271b1`.
 
@@ -130,9 +130,9 @@ Example request body:
 
 == Frequently Asked Questions ==
 
-= Does Presto load scripts on every page? =
+= Does Moqbo load scripts on every page? =
 
-No. Presto enqueues the frontend calendar assets only when the `[presto]` shortcode is detected or rendered.
+No. Moqbo enqueues the frontend calendar assets only when the `[moqbo]` shortcode is detected or rendered.
 
 = Are API endpoints public? =
 
@@ -140,7 +140,7 @@ Enabled API endpoints are public when token authentication is disabled. Enable t
 
 = Can external tools create events? =
 
-Yes. Enable the API, enable the `POST /wp-json/presto/v1/events` endpoint, and optionally require token authentication. The event must reference an existing category.
+Yes. Enable the API, enable the `POST /wp-json/moqbo/v1/events` endpoint, and optionally require token authentication. The event must reference an existing category.
 
 = Can I disable write access but keep read access? =
 
@@ -148,11 +148,11 @@ Yes. The Settings screen lets you enable GET endpoints while keeping POST endpoi
 
 = Does deleting a category delete its events? =
 
-No. Presto blocks deletion of categories that still have events.
+No. Moqbo blocks deletion of categories that still have events.
 
-= What happens when I uninstall Presto? =
+= What happens when I uninstall Moqbo? =
 
-Uninstalling Presto removes its custom database tables and settings. Export or back up event data before uninstalling if you need to keep it.
+Uninstalling Moqbo removes its custom database tables and settings. Export or back up event data before uninstalling if you need to keep it.
 
 == Changelog ==
 

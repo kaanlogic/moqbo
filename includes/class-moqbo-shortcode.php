@@ -2,7 +2,7 @@
 /**
  * Frontend shortcode and Schedule-X data preparation.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,19 +10,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Presto shortcode renderer.
+ * Moqbo shortcode renderer.
  */
-class Presto_Shortcode {
+class Moqbo_Shortcode {
 	/**
 	 * Register the shortcode.
 	 */
 	public static function register() {
-		if ( Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
-			add_shortcode( 'presto', array( __CLASS__, 'render' ) );
+		if ( Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_SHORTCODE ) ) {
+			add_shortcode( 'moqbo', array( __CLASS__, 'render' ) );
 		}
 
-		if ( Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE ) ) {
-			add_shortcode( 'presto-getdate', array( __CLASS__, 'render_getdate' ) );
+		if ( Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_GETDATE_SHORTCODE ) ) {
+			add_shortcode( 'moqbo-getdate', array( __CLASS__, 'render_getdate' ) );
 		}
 	}
 
@@ -32,11 +32,11 @@ class Presto_Shortcode {
 	public static function maybe_enqueue_assets() {
 		global $post;
 
-		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
+		if ( ! Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_SHORTCODE ) ) {
 			return;
 		}
 
-		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'presto' ) ) {
+		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'moqbo' ) ) {
 			self::enqueue_assets();
 		}
 	}
@@ -47,39 +47,39 @@ class Presto_Shortcode {
 	 * @return string
 	 */
 	public static function render() {
-		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_SHORTCODE ) ) {
+		if ( ! Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_SHORTCODE ) ) {
 			return '';
 		}
 
 		self::enqueue_assets();
 
-		$container_id = wp_unique_id( 'presto-calendar-' );
-		$modal_id     = wp_unique_id( 'presto-event-popover-' );
+		$container_id = wp_unique_id( 'moqbo-calendar-' );
+		$modal_id     = wp_unique_id( 'moqbo-event-popover-' );
 		$config       = self::build_instance_config( $container_id, $modal_id );
 		$json         = wp_json_encode( $config );
 
 		if ( false !== $json ) {
 			wp_add_inline_script(
-				'presto-frontend',
-				'window.PrestoCalendars = window.PrestoCalendars || []; window.PrestoCalendars.push(' . $json . ');',
+				'moqbo-frontend',
+				'window.MoqboCalendars = window.MoqboCalendars || []; window.MoqboCalendars.push(' . $json . ');',
 				'before'
 			);
 		}
 
 		ob_start();
 		?>
-		<div class="presto-shortcode" data-presto-instance>
-			<div id="<?php echo esc_attr( $container_id ); ?>" class="presto-calendar" aria-label="<?php esc_attr_e( 'Event calendar', 'presto' ); ?>"></div>
-			<div id="<?php echo esc_attr( $modal_id ); ?>" class="sx__event-modal presto-event-popover" hidden aria-hidden="true">
-				<div class="sx__event-modal-default presto-event-popover__surface" role="dialog" aria-modal="false" aria-labelledby="<?php echo esc_attr( $modal_id ); ?>-title">
-					<div class="sx__has-icon presto-event-popover__category">
-						<span class="sx__event-modal__color-icon" data-presto-modal-field="categoryColor"></span>
-						<span data-presto-modal-field="categoryName"></span>
+		<div class="moqbo-shortcode" data-moqbo-instance>
+			<div id="<?php echo esc_attr( $container_id ); ?>" class="moqbo-calendar" aria-label="<?php esc_attr_e( 'Event calendar', 'moqbo' ); ?>"></div>
+			<div id="<?php echo esc_attr( $modal_id ); ?>" class="sx__event-modal moqbo-event-popover" hidden aria-hidden="true">
+				<div class="sx__event-modal-default moqbo-event-popover__surface" role="dialog" aria-modal="false" aria-labelledby="<?php echo esc_attr( $modal_id ); ?>-title">
+					<div class="sx__has-icon moqbo-event-popover__category">
+						<span class="sx__event-modal__color-icon" data-moqbo-modal-field="categoryColor"></span>
+						<span data-moqbo-modal-field="categoryName"></span>
 					</div>
-					<h2 id="<?php echo esc_attr( $modal_id ); ?>-title" class="sx__event-modal__title presto-event-popover__title" data-presto-modal-field="title"></h2>
-					<div class="presto-event-popover__time" data-presto-modal-field="time"></div>
-					<div class="presto-event-popover__location" data-presto-modal-field="location"></div>
-					<p class="presto-event-popover__description" data-presto-modal-field="description"></p>
+					<h2 id="<?php echo esc_attr( $modal_id ); ?>-title" class="sx__event-modal__title moqbo-event-popover__title" data-moqbo-modal-field="title"></h2>
+					<div class="moqbo-event-popover__time" data-moqbo-modal-field="time"></div>
+					<div class="moqbo-event-popover__location" data-moqbo-modal-field="location"></div>
+					<p class="moqbo-event-popover__description" data-moqbo-modal-field="description"></p>
 				</div>
 			</div>
 		</div>
@@ -95,7 +95,7 @@ class Presto_Shortcode {
 	 * @return string
 	 */
 	public static function render_getdate( $atts ) {
-		if ( ! Presto_Settings::is_feature_enabled( Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE ) ) {
+		if ( ! Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_GETDATE_SHORTCODE ) ) {
 			return '';
 		}
 
@@ -104,7 +104,7 @@ class Presto_Shortcode {
 				'name' => '',
 			),
 			$atts,
-			'presto-getdate'
+			'moqbo-getdate'
 		);
 
 		$name = sanitize_text_field( $atts['name'] );
@@ -113,7 +113,7 @@ class Presto_Shortcode {
 			return 'n/a';
 		}
 
-		$event = Presto_DB::get_next_event_by_name( $name );
+		$event = Moqbo_DB::get_next_event_by_name( $name );
 
 		if ( ! $event ) {
 			return 'n/a';
@@ -132,30 +132,30 @@ class Presto_Shortcode {
 	 * Enqueue frontend assets.
 	 */
 	private static function enqueue_assets() {
-		$theme_css = PRESTO_DIR . 'assets/dist/frontend.css';
-		$script    = PRESTO_DIR . 'assets/dist/frontend.js';
-		$style     = PRESTO_DIR . 'assets/css/frontend.css';
+		$theme_css = MOQBO_DIR . 'assets/dist/frontend.css';
+		$script    = MOQBO_DIR . 'assets/dist/frontend.js';
+		$style     = MOQBO_DIR . 'assets/css/frontend.css';
 
 		if ( file_exists( $theme_css ) ) {
 			wp_enqueue_style(
-				'presto-schedule-x',
-				PRESTO_URL . 'assets/dist/frontend.css',
+				'moqbo-schedule-x',
+				MOQBO_URL . 'assets/dist/frontend.css',
 				array(),
 				self::asset_version( $theme_css )
 			);
 		}
 
 		wp_enqueue_style(
-			'presto-frontend',
-			PRESTO_URL . 'assets/css/frontend.css',
-			file_exists( $theme_css ) ? array( 'presto-schedule-x' ) : array(),
+			'moqbo-frontend',
+			MOQBO_URL . 'assets/css/frontend.css',
+			file_exists( $theme_css ) ? array( 'moqbo-schedule-x' ) : array(),
 			self::asset_version( $style )
 		);
 
 		if ( file_exists( $script ) ) {
 			wp_enqueue_script(
-				'presto-frontend',
-				PRESTO_URL . 'assets/dist/frontend.js',
+				'moqbo-frontend',
+				MOQBO_URL . 'assets/dist/frontend.js',
 				array(),
 				self::asset_version( $script ),
 				true
@@ -187,7 +187,7 @@ class Presto_Shortcode {
 				'calendars'            => self::prepare_calendars(),
 			),
 			'i18n'        => array(
-				'loadError' => __( 'The calendar could not be loaded.', 'presto' ),
+				'loadError' => __( 'The calendar could not be loaded.', 'moqbo' ),
 			),
 		);
 	}
@@ -198,7 +198,7 @@ class Presto_Shortcode {
 	 * @return array
 	 */
 	private static function prepare_events() {
-		$events = Presto_DB::get_events(
+		$events = Moqbo_DB::get_events(
 			array(
 				'orderby' => 'start',
 				'order'   => 'ASC',
@@ -254,7 +254,7 @@ class Presto_Shortcode {
 	 * @return array
 	 */
 	private static function prepare_calendars() {
-		$categories = Presto_DB::get_categories(
+		$categories = Moqbo_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
@@ -269,7 +269,7 @@ class Presto_Shortcode {
 			$color_name      = strtolower( preg_replace( '/[^a-z0-9_-]/', '-', $category['slug'] ) );
 
 			if ( '' === $color_name ) {
-				$color_name = 'presto';
+				$color_name = 'moqbo';
 			}
 
 			$calendars[ $category['slug'] ] = array(
@@ -431,6 +431,6 @@ class Presto_Shortcode {
 	 * @return string
 	 */
 	private static function asset_version( $path ) {
-		return file_exists( $path ) ? (string) filemtime( $path ) : PRESTO_VERSION;
+		return file_exists( $path ) ? (string) filemtime( $path ) : MOQBO_VERSION;
 	}
 }

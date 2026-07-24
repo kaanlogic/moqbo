@@ -2,7 +2,7 @@
 /**
  * Events list table.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,7 +16,7 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 /**
  * Native-style event list table.
  */
-class Presto_Events_List_Table extends WP_List_Table {
+class Moqbo_Events_List_Table extends WP_List_Table {
 	/**
 	 * Initialize table.
 	 */
@@ -39,10 +39,10 @@ class Presto_Events_List_Table extends WP_List_Table {
 		$search       = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$orderby      = isset( $_REQUEST['orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['orderby'] ) ) : 'start'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$order        = isset( $_REQUEST['order'] ) ? sanitize_key( wp_unslash( $_REQUEST['order'] ) ) : 'ASC'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$total_items  = Presto_DB::count_events( array( 'search' => $search ) );
+		$total_items  = Moqbo_DB::count_events( array( 'search' => $search ) );
 
 		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns(), 'name' );
-		$this->items           = Presto_DB::get_events(
+		$this->items           = Moqbo_DB::get_events(
 			array(
 				'search'  => $search,
 				'orderby' => $orderby,
@@ -69,18 +69,18 @@ class Presto_Events_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'cb'          => '<input type="checkbox">',
-			'name'        => __( 'Name', 'presto' ),
-			'slug'        => __( 'Slug', 'presto' ),
-			'location'    => __( 'Location', 'presto' ),
-			'category'    => __( 'Event Category', 'presto' ),
-			'description' => __( 'Description', 'presto' ),
-			'all_day'     => __( 'All-day event', 'presto' ),
-			'start_date'  => __( 'Start Date', 'presto' ),
-			'start_time'  => __( 'Start Time', 'presto' ),
-			'end_date'    => __( 'End Date', 'presto' ),
-			'end_time'    => __( 'End Time', 'presto' ),
-			'created_at'  => __( 'Created At', 'presto' ),
-			'updated_at'  => __( 'Updated At', 'presto' ),
+			'name'        => __( 'Name', 'moqbo' ),
+			'slug'        => __( 'Slug', 'moqbo' ),
+			'location'    => __( 'Location', 'moqbo' ),
+			'category'    => __( 'Event Category', 'moqbo' ),
+			'description' => __( 'Description', 'moqbo' ),
+			'all_day'     => __( 'All-day event', 'moqbo' ),
+			'start_date'  => __( 'Start Date', 'moqbo' ),
+			'start_time'  => __( 'Start Time', 'moqbo' ),
+			'end_date'    => __( 'End Date', 'moqbo' ),
+			'end_time'    => __( 'End Time', 'moqbo' ),
+			'created_at'  => __( 'Created At', 'moqbo' ),
+			'updated_at'  => __( 'Updated At', 'moqbo' ),
 		);
 	}
 
@@ -112,7 +112,7 @@ class Presto_Events_List_Table extends WP_List_Table {
 	 */
 	protected function get_bulk_actions() {
 		return array(
-			'delete' => __( 'Delete', 'presto' ),
+			'delete' => __( 'Delete', 'moqbo' ),
 		);
 	}
 
@@ -135,7 +135,7 @@ class Presto_Events_List_Table extends WP_List_Table {
 	protected function column_name( $item ) {
 		$edit_url = add_query_arg(
 			array(
-				'page'   => 'presto-add-event',
+				'page'   => 'moqbo-add-event',
 				'action' => 'edit',
 				'event'  => rawurlencode( $item['slug'] ),
 			),
@@ -145,18 +145,18 @@ class Presto_Events_List_Table extends WP_List_Table {
 		$delete_url = wp_nonce_url(
 			add_query_arg(
 				array(
-					'page'   => 'presto',
+					'page'   => 'moqbo',
 					'action' => 'delete',
 					'event'  => rawurlencode( $item['slug'] ),
 				),
 				admin_url( 'admin.php' )
 			),
-			'presto_delete_event_' . $item['slug']
+			'moqbo_delete_event_' . $item['slug']
 		);
 
 		$actions = array(
-			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'presto' ) ),
-			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'presto' ) ),
+			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'moqbo' ) ),
+			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'moqbo' ) ),
 		);
 
 		return sprintf(
@@ -185,7 +185,7 @@ class Presto_Events_List_Table extends WP_List_Table {
 			case 'description':
 				return esc_html( wp_trim_words( wp_strip_all_tags( $item['description'] ), 18 ) );
 			case 'all_day':
-				return (bool) $item['all_day'] ? esc_html__( 'Yes', 'presto' ) : esc_html__( 'No', 'presto' );
+				return (bool) $item['all_day'] ? esc_html__( 'Yes', 'moqbo' ) : esc_html__( 'No', 'moqbo' );
 			case 'start_date':
 				return esc_html( $this->format_event_date( $item['start_at'] ) );
 			case 'start_time':
@@ -255,6 +255,6 @@ class Presto_Events_List_Table extends WP_List_Table {
 	 * Empty table text.
 	 */
 	public function no_items() {
-		esc_html_e( 'No events found.', 'presto' );
+		esc_html_e( 'No events found.', 'moqbo' );
 	}
 }

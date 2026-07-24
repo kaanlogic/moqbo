@@ -2,7 +2,7 @@
 /**
  * Categories list table.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -16,7 +16,7 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 /**
  * Native-style category list table.
  */
-class Presto_Categories_List_Table extends WP_List_Table {
+class Moqbo_Categories_List_Table extends WP_List_Table {
 	/**
 	 * Initialize table.
 	 */
@@ -39,10 +39,10 @@ class Presto_Categories_List_Table extends WP_List_Table {
 		$search       = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$orderby      = isset( $_REQUEST['orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['orderby'] ) ) : 'name'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$order        = isset( $_REQUEST['order'] ) ? sanitize_key( wp_unslash( $_REQUEST['order'] ) ) : 'ASC'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$total_items  = Presto_DB::count_categories( array( 'search' => $search ) );
+		$total_items  = Moqbo_DB::count_categories( array( 'search' => $search ) );
 
 		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns(), 'name' );
-		$this->items           = Presto_DB::get_categories(
+		$this->items           = Moqbo_DB::get_categories(
 			array(
 				'search'  => $search,
 				'orderby' => $orderby,
@@ -69,10 +69,10 @@ class Presto_Categories_List_Table extends WP_List_Table {
 	public function get_columns() {
 		return array(
 			'cb'          => '<input type="checkbox">',
-			'name'        => __( 'Name', 'presto' ),
-			'slug'        => __( 'Slug', 'presto' ),
-			'color'       => __( 'Color', 'presto' ),
-			'event_count' => __( 'Event Count', 'presto' ),
+			'name'        => __( 'Name', 'moqbo' ),
+			'slug'        => __( 'Slug', 'moqbo' ),
+			'color'       => __( 'Color', 'moqbo' ),
+			'event_count' => __( 'Event Count', 'moqbo' ),
 		);
 	}
 
@@ -96,7 +96,7 @@ class Presto_Categories_List_Table extends WP_List_Table {
 	 */
 	protected function get_bulk_actions() {
 		return array(
-			'delete' => __( 'Delete', 'presto' ),
+			'delete' => __( 'Delete', 'moqbo' ),
 		);
 	}
 
@@ -119,7 +119,7 @@ class Presto_Categories_List_Table extends WP_List_Table {
 	protected function column_name( $item ) {
 		$edit_url = add_query_arg(
 			array(
-				'page'     => 'presto-categories',
+				'page'     => 'moqbo-categories',
 				'action'   => 'edit',
 				'category' => rawurlencode( $item['slug'] ),
 			),
@@ -129,18 +129,18 @@ class Presto_Categories_List_Table extends WP_List_Table {
 		$delete_url = wp_nonce_url(
 			add_query_arg(
 				array(
-					'page'     => 'presto-categories',
+					'page'     => 'moqbo-categories',
 					'action'   => 'delete',
 					'category' => rawurlencode( $item['slug'] ),
 				),
 				admin_url( 'admin.php' )
 			),
-			'presto_delete_category_' . $item['slug']
+			'moqbo_delete_category_' . $item['slug']
 		);
 
 		$actions = array(
-			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'presto' ) ),
-			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'presto' ) ),
+			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'moqbo' ) ),
+			'delete' => sprintf( '<a href="%s" class="submitdelete">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'moqbo' ) ),
 		);
 
 		return sprintf(
@@ -159,7 +159,7 @@ class Presto_Categories_List_Table extends WP_List_Table {
 	 */
 	protected function column_color( $item ) {
 		return sprintf(
-			'<span class="presto-color-swatch" style="background:%1$s"></span><code>%1$s</code>',
+			'<span class="moqbo-color-swatch" style="background:%1$s"></span><code>%1$s</code>',
 			esc_attr( $item['color'] )
 		);
 	}
@@ -186,6 +186,6 @@ class Presto_Categories_List_Table extends WP_List_Table {
 	 * Empty table text.
 	 */
 	public function no_items() {
-		esc_html_e( 'No categories found.', 'presto' );
+		esc_html_e( 'No categories found.', 'moqbo' );
 	}
 }

@@ -2,7 +2,7 @@
 /**
  * Admin screens and form handling.
  *
- * @package Presto
+ * @package Moqbo
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -10,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Presto admin UI.
+ * Moqbo admin UI.
  */
-class Presto_Admin {
+class Moqbo_Admin {
 	/**
 	 * Event form validation errors collected before the admin page renders.
 	 *
@@ -43,11 +43,11 @@ class Presto_Admin {
 	public static function handle_admin_requests() {
 		$page = isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		if ( 'presto' === $page ) {
+		if ( 'moqbo' === $page ) {
 			self::handle_event_delete_request();
 		}
 
-		if ( 'presto-add-event' === $page && self::is_post_request( 'presto_event_nonce' ) ) {
+		if ( 'moqbo-add-event' === $page && self::is_post_request( 'moqbo_event_nonce' ) ) {
 			$result = self::handle_event_form_submission();
 
 			if ( is_wp_error( $result ) ) {
@@ -55,10 +55,10 @@ class Presto_Admin {
 			}
 		}
 
-		if ( 'presto-categories' === $page ) {
+		if ( 'moqbo-categories' === $page ) {
 			self::handle_category_delete_request();
 
-			if ( self::is_post_request( 'presto_category_nonce' ) ) {
+			if ( self::is_post_request( 'moqbo_category_nonce' ) ) {
 				$result = self::handle_category_form_submission();
 
 				if ( is_wp_error( $result ) ) {
@@ -73,48 +73,48 @@ class Presto_Admin {
 	 */
 	public static function register_menus() {
 		add_menu_page(
-			__( 'Presto', 'presto' ),
-			__( 'Presto', 'presto' ),
+			__( 'Moqbo', 'moqbo' ),
+			__( 'Moqbo', 'moqbo' ),
 			'manage_options',
-			'presto',
+			'moqbo',
 			array( __CLASS__, 'render_events_page' ),
 			'dashicons-calendar-alt',
 			26
 		);
 
 		add_submenu_page(
-			'presto',
-			__( 'All Events', 'presto' ),
-			__( 'All Events', 'presto' ),
+			'moqbo',
+			__( 'All Events', 'moqbo' ),
+			__( 'All Events', 'moqbo' ),
 			'manage_options',
-			'presto',
+			'moqbo',
 			array( __CLASS__, 'render_events_page' )
 		);
 
 		add_submenu_page(
-			'presto',
-			__( 'Add Event', 'presto' ),
-			__( 'Add Event', 'presto' ),
+			'moqbo',
+			__( 'Add Event', 'moqbo' ),
+			__( 'Add Event', 'moqbo' ),
 			'manage_options',
-			'presto-add-event',
+			'moqbo-add-event',
 			array( __CLASS__, 'render_event_form_page' )
 		);
 
 		add_submenu_page(
-			'presto',
-			__( 'Categories', 'presto' ),
-			__( 'Categories', 'presto' ),
+			'moqbo',
+			__( 'Categories', 'moqbo' ),
+			__( 'Categories', 'moqbo' ),
 			'manage_options',
-			'presto-categories',
+			'moqbo-categories',
 			array( __CLASS__, 'render_categories_page' )
 		);
 
 		add_submenu_page(
-			'presto',
-			__( 'Settings', 'presto' ),
-			__( 'Settings', 'presto' ),
+			'moqbo',
+			__( 'Settings', 'moqbo' ),
+			__( 'Settings', 'moqbo' ),
 			'manage_options',
-			'presto-settings',
+			'moqbo-settings',
 			array( __CLASS__, 'render_settings_page' )
 		);
 	}
@@ -124,59 +124,59 @@ class Presto_Admin {
 	 */
 	public static function register_settings() {
 		register_setting(
-			'presto_settings',
-			Presto_Settings::OPTION_NAME,
+			'moqbo_settings',
+			Moqbo_Settings::OPTION_NAME,
 			array(
 				'type'              => 'array',
-				'sanitize_callback' => array( 'Presto_Settings', 'sanitize' ),
-				'default'           => Presto_Settings::defaults(),
+				'sanitize_callback' => array( 'Moqbo_Settings', 'sanitize' ),
+				'default'           => Moqbo_Settings::defaults(),
 			)
 		);
 
 		add_settings_section(
-			'presto_feature_settings',
-			__( 'Feature Settings', 'presto' ),
+			'moqbo_feature_settings',
+			__( 'Feature Settings', 'moqbo' ),
 			array( __CLASS__, 'render_feature_settings_section' ),
-			'presto-settings'
+			'moqbo-settings'
 		);
 
 		add_settings_field(
-			'presto_features',
-			__( 'Features', 'presto' ),
+			'moqbo_features',
+			__( 'Features', 'moqbo' ),
 			array( __CLASS__, 'render_features_field' ),
-			'presto-settings',
-			'presto_feature_settings'
+			'moqbo-settings',
+			'moqbo_feature_settings'
 		);
 
 		add_settings_section(
-			'presto_api_settings',
-			__( 'API Settings', 'presto' ),
+			'moqbo_api_settings',
+			__( 'API Settings', 'moqbo' ),
 			array( __CLASS__, 'render_api_settings_section' ),
-			'presto-settings'
+			'moqbo-settings'
 		);
 
 		add_settings_field(
-			'presto_api_auth_required',
-			__( 'Authentication', 'presto' ),
+			'moqbo_api_auth_required',
+			__( 'Authentication', 'moqbo' ),
 			array( __CLASS__, 'render_api_auth_required_field' ),
-			'presto-settings',
-			'presto_api_settings'
+			'moqbo-settings',
+			'moqbo_api_settings'
 		);
 
 		add_settings_field(
-			'presto_api_token',
-			__( 'Token', 'presto' ),
+			'moqbo_api_token',
+			__( 'Token', 'moqbo' ),
 			array( __CLASS__, 'render_api_token_field' ),
-			'presto-settings',
-			'presto_api_settings'
+			'moqbo-settings',
+			'moqbo_api_settings'
 		);
 
 		add_settings_field(
-			'presto_api_endpoints',
-			__( 'Endpoints', 'presto' ),
+			'moqbo_api_endpoints',
+			__( 'Endpoints', 'moqbo' ),
 			array( __CLASS__, 'render_api_endpoints_field' ),
-			'presto-settings',
-			'presto_api_settings'
+			'moqbo-settings',
+			'moqbo_api_settings'
 		);
 	}
 
@@ -186,22 +186,22 @@ class Presto_Admin {
 	 * @param string $hook Current admin page hook.
 	 */
 	public static function enqueue_assets( $hook ) {
-		if ( false === strpos( $hook, 'presto' ) ) {
+		if ( false === strpos( $hook, 'moqbo' ) ) {
 			return;
 		}
 
 		wp_enqueue_style(
-			'presto-admin',
-			PRESTO_URL . 'assets/css/admin.css',
+			'moqbo-admin',
+			MOQBO_URL . 'assets/css/admin.css',
 			array( 'wp-color-picker' ),
-			self::asset_version( PRESTO_DIR . 'assets/css/admin.css' )
+			self::asset_version( MOQBO_DIR . 'assets/css/admin.css' )
 		);
 
 		wp_enqueue_script(
-			'presto-admin',
-			PRESTO_URL . 'assets/js/admin.js',
+			'moqbo-admin',
+			MOQBO_URL . 'assets/js/admin.js',
 			array( 'jquery', 'wp-color-picker' ),
-			self::asset_version( PRESTO_DIR . 'assets/js/admin.js' ),
+			self::asset_version( MOQBO_DIR . 'assets/js/admin.js' ),
 			true
 		);
 	}
@@ -213,20 +213,20 @@ class Presto_Admin {
 		self::require_capability();
 		self::load_list_table_classes();
 
-		$list_table = new Presto_Events_List_Table();
+		$list_table = new Moqbo_Events_List_Table();
 		$list_table->prepare_items();
 		?>
 		<div class="wrap">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'All Events', 'presto' ); ?></h1>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=presto-add-event' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add Event', 'presto' ); ?></a>
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'All Events', 'moqbo' ); ?></h1>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-add-event' ) ); ?>" class="page-title-action"><?php esc_html_e( 'Add Event', 'moqbo' ); ?></a>
 			<hr class="wp-header-end">
 
 			<?php self::print_notices(); ?>
 
 			<form method="post">
-				<input type="hidden" name="page" value="presto">
+				<input type="hidden" name="page" value="moqbo">
 				<?php wp_nonce_field( 'bulk-events' ); ?>
-				<?php $list_table->search_box( __( 'Search Events', 'presto' ), 'presto-events' ); ?>
+				<?php $list_table->search_box( __( 'Search Events', 'moqbo' ), 'moqbo-events' ); ?>
 				<?php $list_table->display(); ?>
 			</form>
 		</div>
@@ -242,22 +242,22 @@ class Presto_Admin {
 		$posted_original_slug = self::posted_original_slug();
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'event' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'event' ) : '' );
-		$event         = $editing ? Presto_DB::get_event( $original_slug ) : null;
+		$event         = $editing ? Moqbo_DB::get_event( $original_slug ) : null;
 		$errors        = self::$event_errors;
 
 		if ( $editing && ! $event ) {
-			$errors[] = __( 'The requested event could not be found.', 'presto' );
+			$errors[] = __( 'The requested event could not be found.', 'moqbo' );
 			$editing  = false;
 		}
 
 		$values     = self::get_event_form_values( $event );
-		$categories = Presto_DB::get_categories(
+		$categories = Moqbo_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
 			)
 		);
-		$title      = $editing ? __( 'Edit Event', 'presto' ) : __( 'Add Event', 'presto' );
+		$title      = $editing ? __( 'Edit Event', 'moqbo' ) : __( 'Add Event', 'moqbo' );
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html( $title ); ?></h1>
@@ -270,8 +270,8 @@ class Presto_Admin {
 						echo wp_kses_post(
 							sprintf(
 								/* translators: %s: link to categories page. */
-								__( 'Create at least one event category before adding events. <a href="%s">Add a category</a>.', 'presto' ),
-								esc_url( admin_url( 'admin.php?page=presto-categories' ) )
+								__( 'Create at least one event category before adding events. <a href="%s">Add a category</a>.', 'moqbo' ),
+								esc_url( admin_url( 'admin.php?page=moqbo-categories' ) )
 							)
 						);
 						?>
@@ -279,40 +279,40 @@ class Presto_Admin {
 				</div>
 			<?php endif; ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=presto-add-event' ) ); ?>">
-				<?php wp_nonce_field( 'presto_save_event', 'presto_event_nonce' ); ?>
-				<input type="hidden" name="presto_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-add-event' ) ); ?>">
+				<?php wp_nonce_field( 'moqbo_save_event', 'moqbo_event_nonce' ); ?>
+				<input type="hidden" name="moqbo_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
 				<table class="form-table" role="presentation">
 					<tbody>
 						<tr>
-							<th scope="row"><label for="presto-event-name"><?php esc_html_e( 'Name', 'presto' ); ?></label></th>
-							<td><input name="name" type="text" id="presto-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
+							<th scope="row"><label for="moqbo-event-name"><?php esc_html_e( 'Name', 'moqbo' ); ?></label></th>
+							<td><input name="name" type="text" id="moqbo-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
 						</tr>
 						<tr>
-							<th scope="row"><?php esc_html_e( 'Slug Generation', 'presto' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'Slug Generation', 'moqbo' ); ?></th>
 							<td>
-								<label for="presto-auto-generate-slug">
-									<input name="auto_generate_slug" type="checkbox" id="presto-auto-generate-slug" value="1" <?php checked( $values['auto_generate_slug'] ); ?>>
-									<?php esc_html_e( 'Auto generate a slug based on the event name', 'presto' ); ?>
+								<label for="moqbo-auto-generate-slug">
+									<input name="auto_generate_slug" type="checkbox" id="moqbo-auto-generate-slug" value="1" <?php checked( $values['auto_generate_slug'] ); ?>>
+									<?php esc_html_e( 'Auto generate a slug based on the event name', 'moqbo' ); ?>
 								</label>
 							</td>
 						</tr>
 						<tr <?php if ( $values['auto_generate_slug'] ) : ?>hidden<?php endif; ?>>
-							<th scope="row"><label for="presto-event-slug"><?php esc_html_e( 'Slug', 'presto' ); ?></label></th>
+							<th scope="row"><label for="moqbo-event-slug"><?php esc_html_e( 'Slug', 'moqbo' ); ?></label></th>
 							<td>
-								<input name="slug" type="text" id="presto-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
+								<input name="slug" type="text" id="moqbo-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="presto-location"><?php esc_html_e( 'Location', 'presto' ); ?></label></th>
-							<td><input name="location" type="text" id="presto-location" class="regular-text" value="<?php echo esc_attr( $values['location'] ); ?>"></td>
+							<th scope="row"><label for="moqbo-location"><?php esc_html_e( 'Location', 'moqbo' ); ?></label></th>
+							<td><input name="location" type="text" id="moqbo-location" class="regular-text" value="<?php echo esc_attr( $values['location'] ); ?>"></td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="presto-category"><?php esc_html_e( 'Event Category', 'presto' ); ?></label></th>
+							<th scope="row"><label for="moqbo-category"><?php esc_html_e( 'Event Category', 'moqbo' ); ?></label></th>
 							<td>
-								<select name="category_slug" id="presto-category" required <?php disabled( empty( $categories ) ); ?>>
-									<option value=""><?php esc_html_e( 'Select category', 'presto' ); ?></option>
+								<select name="category_slug" id="moqbo-category" required <?php disabled( empty( $categories ) ); ?>>
+									<option value=""><?php esc_html_e( 'Select category', 'moqbo' ); ?></option>
 									<?php foreach ( $categories as $category ) : ?>
 										<option value="<?php echo esc_attr( $category['slug'] ); ?>" <?php selected( $values['category_slug'], $category['slug'] ); ?>><?php echo esc_html( $category['name'] ); ?></option>
 									<?php endforeach; ?>
@@ -320,38 +320,38 @@ class Presto_Admin {
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="presto-description"><?php esc_html_e( 'Description', 'presto' ); ?></label></th>
-							<td><textarea name="description" id="presto-description" class="large-text" rows="5"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
+							<th scope="row"><label for="moqbo-description"><?php esc_html_e( 'Description', 'moqbo' ); ?></label></th>
+							<td><textarea name="description" id="moqbo-description" class="large-text" rows="5"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
 						</tr>
 						<tr>
-							<th scope="row"><?php esc_html_e( 'All-day event', 'presto' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'All-day event', 'moqbo' ); ?></th>
 							<td>
-								<label for="presto-all-day">
-									<input name="all_day" type="checkbox" id="presto-all-day" value="1" <?php checked( $values['all_day'] ); ?>>
-									<?php esc_html_e( 'This event spans full calendar days.', 'presto' ); ?>
+								<label for="moqbo-all-day">
+									<input name="all_day" type="checkbox" id="moqbo-all-day" value="1" <?php checked( $values['all_day'] ); ?>>
+									<?php esc_html_e( 'This event spans full calendar days.', 'moqbo' ); ?>
 								</label>
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="presto-start-date"><?php esc_html_e( 'Start Date', 'presto' ); ?></label></th>
-							<td><input name="start_date" type="date" id="presto-start-date" value="<?php echo esc_attr( $values['start_date'] ); ?>" required></td>
+							<th scope="row"><label for="moqbo-start-date"><?php esc_html_e( 'Start Date', 'moqbo' ); ?></label></th>
+							<td><input name="start_date" type="date" id="moqbo-start-date" value="<?php echo esc_attr( $values['start_date'] ); ?>" required></td>
 						</tr>
-						<tr class="presto-time-row">
-							<th scope="row"><label for="presto-start-time"><?php esc_html_e( 'Start Time', 'presto' ); ?></label></th>
-							<td><input name="start_time" type="time" id="presto-start-time" value="<?php echo esc_attr( $values['start_time'] ); ?>"></td>
+						<tr class="moqbo-time-row">
+							<th scope="row"><label for="moqbo-start-time"><?php esc_html_e( 'Start Time', 'moqbo' ); ?></label></th>
+							<td><input name="start_time" type="time" id="moqbo-start-time" value="<?php echo esc_attr( $values['start_time'] ); ?>"></td>
 						</tr>
 						<tr>
-							<th scope="row"><label for="presto-end-date"><?php esc_html_e( 'End Date', 'presto' ); ?></label></th>
-							<td><input name="end_date" type="date" id="presto-end-date" value="<?php echo esc_attr( $values['end_date'] ); ?>" required></td>
+							<th scope="row"><label for="moqbo-end-date"><?php esc_html_e( 'End Date', 'moqbo' ); ?></label></th>
+							<td><input name="end_date" type="date" id="moqbo-end-date" value="<?php echo esc_attr( $values['end_date'] ); ?>" required></td>
 						</tr>
-						<tr class="presto-time-row">
-							<th scope="row"><label for="presto-end-time"><?php esc_html_e( 'End Time', 'presto' ); ?></label></th>
-							<td><input name="end_time" type="time" id="presto-end-time" value="<?php echo esc_attr( $values['end_time'] ); ?>"></td>
+						<tr class="moqbo-time-row">
+							<th scope="row"><label for="moqbo-end-time"><?php esc_html_e( 'End Time', 'moqbo' ); ?></label></th>
+							<td><input name="end_time" type="time" id="moqbo-end-time" value="<?php echo esc_attr( $values['end_time'] ); ?>"></td>
 						</tr>
 					</tbody>
 				</table>
 
-				<?php submit_button( $editing ? __( 'Update Event', 'presto' ) : __( 'Add Event', 'presto' ) ); ?>
+				<?php submit_button( $editing ? __( 'Update Event', 'moqbo' ) : __( 'Add Event', 'moqbo' ) ); ?>
 			</form>
 		</div>
 		<?php
@@ -367,56 +367,56 @@ class Presto_Admin {
 		$posted_original_slug = self::posted_original_slug();
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'category' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'category' ) : '' );
-		$category      = $editing ? Presto_DB::get_category( $original_slug ) : null;
+		$category      = $editing ? Moqbo_DB::get_category( $original_slug ) : null;
 		$errors        = self::$category_errors;
 
 		if ( $editing && ! $category ) {
-			$errors[] = __( 'The requested category could not be found.', 'presto' );
+			$errors[] = __( 'The requested category could not be found.', 'moqbo' );
 			$editing  = false;
 		}
 
 		$values     = self::get_category_form_values( $category );
-		$list_table = new Presto_Categories_List_Table();
+		$list_table = new Moqbo_Categories_List_Table();
 		$list_table->prepare_items();
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Categories', 'presto' ); ?></h1>
+			<h1><?php esc_html_e( 'Categories', 'moqbo' ); ?></h1>
 			<?php self::print_notices(); ?>
 			<?php self::print_errors( $errors ); ?>
 
 			<form class="search-form wp-clearfix" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
-				<input type="hidden" name="page" value="presto-categories">
-				<?php $list_table->search_box( __( 'Search Categories', 'presto' ), 'presto-categories' ); ?>
+				<input type="hidden" name="page" value="moqbo-categories">
+				<?php $list_table->search_box( __( 'Search Categories', 'moqbo' ), 'moqbo-categories' ); ?>
 			</form>
 
-			<div id="col-container" class="wp-clearfix presto-categories-layout">
+			<div id="col-container" class="wp-clearfix moqbo-categories-layout">
 				<div id="col-left">
 					<div class="col-wrap form-wrap">
-						<h2><?php echo esc_html( $editing ? __( 'Edit Category', 'presto' ) : __( 'Add Category', 'presto' ) ); ?></h2>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=presto-categories' ) ); ?>">
-							<?php wp_nonce_field( 'presto_save_category', 'presto_category_nonce' ); ?>
-							<input type="hidden" name="presto_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
+						<h2><?php echo esc_html( $editing ? __( 'Edit Category', 'moqbo' ) : __( 'Add Category', 'moqbo' ) ); ?></h2>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-categories' ) ); ?>">
+							<?php wp_nonce_field( 'moqbo_save_category', 'moqbo_category_nonce' ); ?>
+							<input type="hidden" name="moqbo_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
 							<div class="form-field form-required">
-								<label for="presto-category-name"><?php esc_html_e( 'Name', 'presto' ); ?></label>
-								<input name="name" type="text" id="presto-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" required>
+								<label for="moqbo-category-name"><?php esc_html_e( 'Name', 'moqbo' ); ?></label>
+								<input name="name" type="text" id="moqbo-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" required>
 							</div>
 
 							<div class="form-field">
-								<label for="presto-category-slug"><?php esc_html_e( 'Slug', 'presto' ); ?></label>
-								<input name="slug" type="text" id="presto-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>">
-								<p><?php esc_html_e( 'Leave blank to generate from the category name.', 'presto' ); ?></p>
+								<label for="moqbo-category-slug"><?php esc_html_e( 'Slug', 'moqbo' ); ?></label>
+								<input name="slug" type="text" id="moqbo-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>">
+								<p><?php esc_html_e( 'Leave blank to generate from the category name.', 'moqbo' ); ?></p>
 							</div>
 
 							<div class="form-field form-required">
-								<label for="presto-category-color"><?php esc_html_e( 'Color', 'presto' ); ?></label>
-								<input name="color" type="text" id="presto-category-color" class="presto-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" data-default-color="#2271b1" aria-required="true">
+								<label for="moqbo-category-color"><?php esc_html_e( 'Color', 'moqbo' ); ?></label>
+								<input name="color" type="text" id="moqbo-category-color" class="moqbo-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" data-default-color="#2271b1" aria-required="true">
 							</div>
 
-							<?php submit_button( $editing ? __( 'Update Category', 'presto' ) : __( 'Add Category', 'presto' ), 'primary', 'submit', false ); ?>
+							<?php submit_button( $editing ? __( 'Update Category', 'moqbo' ) : __( 'Add Category', 'moqbo' ), 'primary', 'submit', false ); ?>
 
 							<?php if ( $editing ) : ?>
-								<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=presto-categories' ) ); ?>"><?php esc_html_e( 'Cancel', 'presto' ); ?></a>
+								<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-categories' ) ); ?>"><?php esc_html_e( 'Cancel', 'moqbo' ); ?></a>
 							<?php endif; ?>
 						</form>
 					</div>
@@ -425,7 +425,7 @@ class Presto_Admin {
 				<div id="col-right">
 					<div class="col-wrap">
 						<form method="post">
-							<input type="hidden" name="page" value="presto-categories">
+							<input type="hidden" name="page" value="moqbo-categories">
 							<?php wp_nonce_field( 'bulk-categories' ); ?>
 							<?php $list_table->display(); ?>
 						</form>
@@ -443,13 +443,13 @@ class Presto_Admin {
 		self::require_capability();
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Settings', 'presto' ); ?></h1>
+			<h1><?php esc_html_e( 'Settings', 'moqbo' ); ?></h1>
 			<?php settings_errors(); ?>
 
 			<form method="post" action="options.php">
 				<?php
-				settings_fields( 'presto_settings' );
-				do_settings_sections( 'presto-settings' );
+				settings_fields( 'moqbo_settings' );
+				do_settings_sections( 'moqbo-settings' );
 				submit_button();
 				?>
 			</form>
@@ -475,25 +475,25 @@ class Presto_Admin {
 	 * Render feature checkboxes.
 	 */
 	public static function render_features_field() {
-		$settings = Presto_Settings::get();
+		$settings = Moqbo_Settings::get();
 		$features = array(
-			Presto_Settings::FEATURE_PRESTO_SHORTCODE         => sprintf(
+			Moqbo_Settings::FEATURE_MOQBO_SHORTCODE         => sprintf(
 				/* translators: %s: shortcode tag. */
-				__( 'Enable <code>%s</code> shortcode', 'presto' ),
-				esc_html( '[presto]' )
+				__( 'Enable <code>%s</code> shortcode', 'moqbo' ),
+				esc_html( '[moqbo]' )
 			),
-			Presto_Settings::FEATURE_PRESTO_GETDATE_SHORTCODE => sprintf(
+			Moqbo_Settings::FEATURE_MOQBO_GETDATE_SHORTCODE => sprintf(
 				/* translators: %s: shortcode tag. */
-				__( 'Enable <code>%s</code> shortcode', 'presto' ),
-				esc_html( '[presto-getdate]' )
+				__( 'Enable <code>%s</code> shortcode', 'moqbo' ),
+				esc_html( '[moqbo-getdate]' )
 			),
-			Presto_Settings::FEATURE_API                      => esc_html__( 'Enable Presto API', 'presto' ),
+			Moqbo_Settings::FEATURE_API                      => esc_html__( 'Enable Moqbo API', 'moqbo' ),
 		);
 		?>
 		<fieldset>
 			<?php foreach ( $features as $key => $label ) : ?>
-				<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
-					<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
+				<label for="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
+					<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
 					<?php echo wp_kses_post( $label ); ?>
 				</label><br>
 			<?php endforeach; ?>
@@ -505,11 +505,11 @@ class Presto_Admin {
 	 * Render API authentication toggle.
 	 */
 	public static function render_api_auth_required_field() {
-		$settings = Presto_Settings::get();
+		$settings = Moqbo_Settings::get();
 		?>
-		<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_AUTH_REQUIRED ) ); ?>">
-			<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . Presto_Settings::API_AUTH_REQUIRED . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_AUTH_REQUIRED ) ); ?>" value="1" <?php checked( ! empty( $settings[ Presto_Settings::API_AUTH_REQUIRED ] ) ); ?>>
-			<?php esc_html_e( 'Require bearer token authentication for API endpoints', 'presto' ); ?>
+		<label for="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_AUTH_REQUIRED ) ); ?>">
+			<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . Moqbo_Settings::API_AUTH_REQUIRED . ']' ); ?>" type="checkbox" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_AUTH_REQUIRED ) ); ?>" value="1" <?php checked( ! empty( $settings[ Moqbo_Settings::API_AUTH_REQUIRED ] ) ); ?>>
+			<?php esc_html_e( 'Require bearer token authentication for API endpoints', 'moqbo' ); ?>
 		</label>
 		<?php
 	}
@@ -518,16 +518,16 @@ class Presto_Admin {
 	 * Render API token input.
 	 */
 	public static function render_api_token_field() {
-		$settings = Presto_Settings::get();
-		$token    = isset( $settings[ Presto_Settings::API_TOKEN ] ) ? $settings[ Presto_Settings::API_TOKEN ] : '';
+		$settings = Moqbo_Settings::get();
+		$token    = isset( $settings[ Moqbo_Settings::API_TOKEN ] ) ? $settings[ Moqbo_Settings::API_TOKEN ] : '';
 		?>
-		<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . Presto_Settings::API_TOKEN . ']' ); ?>" type="text" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', Presto_Settings::API_TOKEN ) ); ?>" class="regular-text" value="<?php echo esc_attr( $token ); ?>" autocomplete="off">
+		<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . Moqbo_Settings::API_TOKEN . ']' ); ?>" type="text" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_TOKEN ) ); ?>" class="regular-text" value="<?php echo esc_attr( $token ); ?>" autocomplete="off">
 		<p class="description">
 			<?php
 			echo wp_kses_post(
 				sprintf(
 					/* translators: %s: Authorization header example. */
-					__( 'Clients can send this value with the Authorization header (For example: <code>%s</code>)', 'presto' ),
+					__( 'Clients can send this value with the Authorization header (For example: <code>%s</code>)', 'moqbo' ),
 					esc_html( 'Bearer your-token' )
 				)
 			);
@@ -540,28 +540,28 @@ class Presto_Admin {
 	 * Render API endpoint toggles.
 	 */
 	public static function render_api_endpoints_field() {
-		$settings  = Presto_Settings::get();
+		$settings  = Moqbo_Settings::get();
 		$endpoints = array(
-			'/wp-json/presto/v1/events'     => array(
-				Presto_Settings::API_GET_EVENTS_ENABLED  => __( 'GET', 'presto' ),
-				Presto_Settings::API_POST_EVENTS_ENABLED => __( 'POST', 'presto' ),
+			'/wp-json/moqbo/v1/events'     => array(
+				Moqbo_Settings::API_GET_EVENTS_ENABLED  => __( 'GET', 'moqbo' ),
+				Moqbo_Settings::API_POST_EVENTS_ENABLED => __( 'POST', 'moqbo' ),
 			),
-			'/wp-json/presto/v1/categories' => array(
-				Presto_Settings::API_GET_CATEGORIES_ENABLED  => __( 'GET', 'presto' ),
-				Presto_Settings::API_POST_CATEGORIES_ENABLED => __( 'POST', 'presto' ),
+			'/wp-json/moqbo/v1/categories' => array(
+				Moqbo_Settings::API_GET_CATEGORIES_ENABLED  => __( 'GET', 'moqbo' ),
+				Moqbo_Settings::API_POST_CATEGORIES_ENABLED => __( 'POST', 'moqbo' ),
 			),
 		);
 		?>
 		<fieldset>
 			<?php foreach ( $endpoints as $endpoint_path => $methods ) : ?>
 				<?php foreach ( $methods as $key => $method ) : ?>
-					<label for="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
-						<input name="<?php echo esc_attr( Presto_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="presto-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
+					<label for="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>">
+						<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . $key . ']' ); ?>" type="checkbox" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', $key ) ); ?>" value="1" <?php checked( ! empty( $settings[ $key ] ) ); ?>>
 						<?php
 						echo wp_kses_post(
 							sprintf(
 								/* translators: 1: REST endpoint path. 2: HTTP method. */
-								__( 'Enable <code>%1$s</code> %2$s endpoint', 'presto' ),
+								__( 'Enable <code>%1$s</code> %2$s endpoint', 'moqbo' ),
 								esc_html( $endpoint_path ),
 								esc_html( $method )
 							)
@@ -601,8 +601,8 @@ class Presto_Admin {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 		}
 
-		require_once PRESTO_DIR . 'includes/class-presto-events-list-table.php';
-		require_once PRESTO_DIR . 'includes/class-presto-categories-list-table.php';
+		require_once MOQBO_DIR . 'includes/class-moqbo-events-list-table.php';
+		require_once MOQBO_DIR . 'includes/class-moqbo-categories-list-table.php';
 	}
 
 	/**
@@ -620,21 +620,21 @@ class Presto_Admin {
 		$slugs = isset( $_REQUEST['event'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['event'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
-			self::redirect_to( 'presto', array( 'presto_notice' => 'no_selection' ) );
+			self::redirect_to( 'moqbo', array( 'moqbo_notice' => 'no_selection' ) );
 		}
 
 		if ( 1 === count( $slugs ) && isset( $_GET['event'] ) ) {
-			check_admin_referer( 'presto_delete_event_' . reset( $slugs ) );
+			check_admin_referer( 'moqbo_delete_event_' . reset( $slugs ) );
 		} else {
 			check_admin_referer( 'bulk-events' );
 		}
 
-		$deleted = Presto_DB::delete_events( $slugs );
+		$deleted = Moqbo_DB::delete_events( $slugs );
 
 		self::redirect_to(
-			'presto',
+			'moqbo',
 			array(
-				'presto_notice' => 'events_deleted',
+				'moqbo_notice' => 'events_deleted',
 				'deleted'         => $deleted,
 			)
 		);
@@ -655,21 +655,21 @@ class Presto_Admin {
 		$slugs = isset( $_REQUEST['category'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['category'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
-			self::redirect_to( 'presto-categories', array( 'presto_notice' => 'no_selection' ) );
+			self::redirect_to( 'moqbo-categories', array( 'moqbo_notice' => 'no_selection' ) );
 		}
 
 		if ( 1 === count( $slugs ) && isset( $_GET['category'] ) ) {
-			check_admin_referer( 'presto_delete_category_' . reset( $slugs ) );
+			check_admin_referer( 'moqbo_delete_category_' . reset( $slugs ) );
 		} else {
 			check_admin_referer( 'bulk-categories' );
 		}
 
-		$result = Presto_DB::delete_categories( $slugs );
+		$result = Moqbo_DB::delete_categories( $slugs );
 
 		self::redirect_to(
-			'presto-categories',
+			'moqbo-categories',
 			array(
-				'presto_notice' => 'categories_deleted',
+				'moqbo_notice' => 'categories_deleted',
 				'deleted'         => count( $result['deleted'] ),
 				'blocked'         => count( $result['blocked'] ),
 			)
@@ -683,15 +683,15 @@ class Presto_Admin {
 	 */
 	private static function handle_event_form_submission() {
 		self::require_capability();
-		check_admin_referer( 'presto_save_event', 'presto_event_nonce' );
+		check_admin_referer( 'moqbo_save_event', 'moqbo_event_nonce' );
 
 		$raw           = wp_unslash( $_POST );
-		$original_slug = isset( $raw['presto_original_slug'] ) ? sanitize_title( $raw['presto_original_slug'] ) : '';
+		$original_slug = isset( $raw['moqbo_original_slug'] ) ? sanitize_title( $raw['moqbo_original_slug'] ) : '';
 		$editing       = '' !== $original_slug;
-		$existing      = $editing ? Presto_DB::get_event( $original_slug ) : null;
+		$existing      = $editing ? Moqbo_DB::get_event( $original_slug ) : null;
 
 		if ( $editing && ! $existing ) {
-			return new WP_Error( 'presto_missing_event', __( 'The event you tried to update no longer exists.', 'presto' ) );
+			return new WP_Error( 'moqbo_missing_event', __( 'The event you tried to update no longer exists.', 'moqbo' ) );
 		}
 
 		$validated = self::validate_event_submission( $original_slug, $raw );
@@ -704,18 +704,18 @@ class Presto_Admin {
 
 		if ( $editing ) {
 			$validated['updated_at'] = $now;
-			$success                 = Presto_DB::update_event( $original_slug, $validated );
+			$success                 = Moqbo_DB::update_event( $original_slug, $validated );
 		} else {
 			$validated['created_at'] = $now;
 			$validated['updated_at'] = $now;
-			$success                 = Presto_DB::insert_event( $validated );
+			$success                 = Moqbo_DB::insert_event( $validated );
 		}
 
 		if ( ! $success ) {
-			return new WP_Error( 'presto_save_event_failed', __( 'The event could not be saved.', 'presto' ) );
+			return new WP_Error( 'moqbo_save_event_failed', __( 'The event could not be saved.', 'moqbo' ) );
 		}
 
-		self::redirect_to( 'presto', array( 'presto_notice' => 'event_saved' ) );
+		self::redirect_to( 'moqbo', array( 'moqbo_notice' => 'event_saved' ) );
 	}
 
 	/**
@@ -725,15 +725,15 @@ class Presto_Admin {
 	 */
 	private static function handle_category_form_submission() {
 		self::require_capability();
-		check_admin_referer( 'presto_save_category', 'presto_category_nonce' );
+		check_admin_referer( 'moqbo_save_category', 'moqbo_category_nonce' );
 
 		$raw           = wp_unslash( $_POST );
-		$original_slug = isset( $raw['presto_original_slug'] ) ? sanitize_title( $raw['presto_original_slug'] ) : '';
+		$original_slug = isset( $raw['moqbo_original_slug'] ) ? sanitize_title( $raw['moqbo_original_slug'] ) : '';
 		$editing       = '' !== $original_slug;
-		$existing      = $editing ? Presto_DB::get_category( $original_slug ) : null;
+		$existing      = $editing ? Moqbo_DB::get_category( $original_slug ) : null;
 
 		if ( $editing && ! $existing ) {
-			return new WP_Error( 'presto_missing_category', __( 'The category you tried to update no longer exists.', 'presto' ) );
+			return new WP_Error( 'moqbo_missing_category', __( 'The category you tried to update no longer exists.', 'moqbo' ) );
 		}
 
 		$validated = self::validate_category_submission( $original_slug, $raw );
@@ -746,18 +746,18 @@ class Presto_Admin {
 
 		if ( $editing ) {
 			$validated['updated_at'] = $now;
-			$success                 = Presto_DB::update_category( $original_slug, $validated );
+			$success                 = Moqbo_DB::update_category( $original_slug, $validated );
 		} else {
 			$validated['created_at'] = $now;
 			$validated['updated_at'] = $now;
-			$success                 = Presto_DB::insert_category( $validated );
+			$success                 = Moqbo_DB::insert_category( $validated );
 		}
 
 		if ( ! $success ) {
-			return new WP_Error( 'presto_save_category_failed', __( 'The category could not be saved.', 'presto' ) );
+			return new WP_Error( 'moqbo_save_category_failed', __( 'The category could not be saved.', 'moqbo' ) );
 		}
 
-		self::redirect_to( 'presto-categories', array( 'presto_notice' => 'category_saved' ) );
+		self::redirect_to( 'moqbo-categories', array( 'moqbo_notice' => 'category_saved' ) );
 	}
 
 	/**
@@ -777,27 +777,27 @@ class Presto_Admin {
 		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : ( isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '' );
 
 		if ( '' === $name ) {
-			$errors->add( 'missing_name', __( 'Event name is required.', 'presto' ) );
+			$errors->add( 'missing_name', __( 'Event name is required.', 'moqbo' ) );
 		}
 
 		if ( '' === $slug ) {
 			if ( $auto_generate_slug ) {
-				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'presto' ) );
+				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'moqbo' ) );
 			} else {
-				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'presto' ) );
+				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'moqbo' ) );
 			}
 		}
 
-		$duplicate = '' !== $slug ? Presto_DB::get_event( $slug ) : null;
+		$duplicate = '' !== $slug ? Moqbo_DB::get_event( $slug ) : null;
 
 		if ( $duplicate && $slug !== $original_slug ) {
-			$errors->add( 'duplicate_slug', __( 'An event with this slug already exists.', 'presto' ) );
+			$errors->add( 'duplicate_slug', __( 'An event with this slug already exists.', 'moqbo' ) );
 		}
 
 		$category_slug = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
 
-		if ( '' === $category_slug || ! Presto_DB::get_category( $category_slug ) ) {
-			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'presto' ) );
+		if ( '' === $category_slug || ! Moqbo_DB::get_category( $category_slug ) ) {
+			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
 		}
 
 		$all_day    = ! empty( $raw['all_day'] );
@@ -805,8 +805,8 @@ class Presto_Admin {
 		$start_time = $all_day ? '00:00' : self::default_time( isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '', '09:00' );
 		$end_time   = $all_day ? '00:00' : self::default_time( isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '', '10:00' );
 
-		$start = self::validate_local_datetime( $start_date, $start_time, __( 'Start', 'presto' ) );
-		$end   = self::validate_local_datetime( $end_date, $end_time, __( 'End', 'presto' ) );
+		$start = self::validate_local_datetime( $start_date, $start_time, __( 'Start', 'moqbo' ) );
+		$end   = self::validate_local_datetime( $end_date, $end_time, __( 'End', 'moqbo' ) );
 
 		if ( is_wp_error( $start ) ) {
 			$errors->merge_from( $start );
@@ -818,11 +818,11 @@ class Presto_Admin {
 
 		if ( ! is_wp_error( $start ) && ! is_wp_error( $end ) ) {
 			if ( $all_day && $end < $start ) {
-				$errors->add( 'end_before_start', __( 'All-day event end date cannot be earlier than the start date.', 'presto' ) );
+				$errors->add( 'end_before_start', __( 'All-day event end date cannot be earlier than the start date.', 'moqbo' ) );
 			}
 
 			if ( ! $all_day && $end <= $start ) {
-				$errors->add( 'end_before_start', __( 'Timed events must end after they start.', 'presto' ) );
+				$errors->add( 'end_before_start', __( 'Timed events must end after they start.', 'moqbo' ) );
 			}
 		}
 
@@ -857,7 +857,7 @@ class Presto_Admin {
 		$color = isset( $raw['color'] ) ? sanitize_hex_color( $raw['color'] ) : '';
 
 		if ( '' === $name ) {
-			$errors->add( 'missing_name', __( 'Category name is required.', 'presto' ) );
+			$errors->add( 'missing_name', __( 'Category name is required.', 'moqbo' ) );
 		}
 
 		if ( '' === $slug ) {
@@ -865,17 +865,17 @@ class Presto_Admin {
 		}
 
 		if ( '' === $slug ) {
-			$errors->add( 'missing_slug', __( 'Category slug could not be generated. Enter a slug manually.', 'presto' ) );
+			$errors->add( 'missing_slug', __( 'Category slug could not be generated. Enter a slug manually.', 'moqbo' ) );
 		}
 
-		$duplicate = '' !== $slug ? Presto_DB::get_category( $slug ) : null;
+		$duplicate = '' !== $slug ? Moqbo_DB::get_category( $slug ) : null;
 
 		if ( $duplicate && $slug !== $original_slug ) {
-			$errors->add( 'duplicate_slug', __( 'A category with this slug already exists.', 'presto' ) );
+			$errors->add( 'duplicate_slug', __( 'A category with this slug already exists.', 'moqbo' ) );
 		}
 
 		if ( ! $color || ! preg_match( '/^#[0-9A-Fa-f]{6}$/', $color ) ) {
-			$errors->add( 'invalid_color', __( 'Choose a valid hex color.', 'presto' ) );
+			$errors->add( 'invalid_color', __( 'Choose a valid hex color.', 'moqbo' ) );
 		}
 
 		if ( $errors->has_errors() ) {
@@ -926,9 +926,9 @@ class Presto_Admin {
 			);
 		}
 
-		$event_nonce = isset( $_POST['presto_event_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['presto_event_nonce'] ) ) : '';
+		$event_nonce = isset( $_POST['moqbo_event_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['moqbo_event_nonce'] ) ) : '';
 
-		if ( self::is_post_request( 'presto_event_nonce' ) && wp_verify_nonce( $event_nonce, 'presto_save_event' ) ) {
+		if ( self::is_post_request( 'moqbo_event_nonce' ) && wp_verify_nonce( $event_nonce, 'moqbo_save_event' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -968,9 +968,9 @@ class Presto_Admin {
 			);
 		}
 
-		$category_nonce = isset( $_POST['presto_category_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['presto_category_nonce'] ) ) : '';
+		$category_nonce = isset( $_POST['moqbo_category_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['moqbo_category_nonce'] ) ) : '';
 
-		if ( self::is_post_request( 'presto_category_nonce' ) && wp_verify_nonce( $category_nonce, 'presto_save_category' ) ) {
+		if ( self::is_post_request( 'moqbo_category_nonce' ) && wp_verify_nonce( $category_nonce, 'moqbo_save_category' ) ) {
 			$raw = wp_unslash( $_POST );
 
 			$defaults['name']  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
@@ -998,7 +998,7 @@ class Presto_Admin {
 				'invalid_date',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date must use YYYY-MM-DD format.', 'presto' ),
+					__( '%s date must use YYYY-MM-DD format.', 'moqbo' ),
 					$label
 				)
 			);
@@ -1009,7 +1009,7 @@ class Presto_Admin {
 				'invalid_time',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s time must use HH:MM 24-hour format.', 'presto' ),
+					__( '%s time must use HH:MM 24-hour format.', 'moqbo' ),
 					$label
 				)
 			);
@@ -1028,7 +1028,7 @@ class Presto_Admin {
 				'invalid_datetime',
 				sprintf(
 					/* translators: %s: field label. */
-					__( '%s date/time is not valid in the site timezone.', 'presto' ),
+					__( '%s date/time is not valid in the site timezone.', 'moqbo' ),
 					$label
 				)
 			);
@@ -1126,7 +1126,7 @@ class Presto_Admin {
 	 * @return string
 	 */
 	private static function posted_original_slug() {
-		return isset( $_POST['presto_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['presto_original_slug'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		return isset( $_POST['moqbo_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['moqbo_original_slug'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 	}
 
 	/**
@@ -1142,16 +1142,16 @@ class Presto_Admin {
 	}
 
 	/**
-	 * Ensure the current user can manage Presto.
+	 * Ensure the current user can manage Moqbo.
 	 */
 	private static function require_capability() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage Presto.', 'presto' ) );
+			wp_die( esc_html__( 'You do not have permission to manage Moqbo.', 'moqbo' ) );
 		}
 	}
 
 	/**
-	 * Redirect back to a Presto admin page.
+	 * Redirect back to a Moqbo admin page.
 	 *
 	 * @param string $page Admin page slug.
 	 * @param array  $args Query args.
@@ -1167,7 +1167,7 @@ class Presto_Admin {
 	 * Print redirect notices.
 	 */
 	private static function print_notices() {
-		$notice = isset( $_GET['presto_notice'] ) ? sanitize_key( wp_unslash( $_GET['presto_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$notice = isset( $_GET['moqbo_notice'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $notice ) {
 			return;
@@ -1178,16 +1178,16 @@ class Presto_Admin {
 
 		switch ( $notice ) {
 			case 'event_saved':
-				$message = __( 'Event saved.', 'presto' );
+				$message = __( 'Event saved.', 'moqbo' );
 				break;
 			case 'category_saved':
-				$message = __( 'Category saved.', 'presto' );
+				$message = __( 'Category saved.', 'moqbo' );
 				break;
 			case 'events_deleted':
 				$deleted = isset( $_GET['deleted'] ) ? absint( $_GET['deleted'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				$message = sprintf(
 					/* translators: %d: deleted event count. */
-					_n( '%d event deleted.', '%d events deleted.', $deleted, 'presto' ),
+					_n( '%d event deleted.', '%d events deleted.', $deleted, 'moqbo' ),
 					$deleted
 				);
 				break;
@@ -1197,14 +1197,14 @@ class Presto_Admin {
 				$type    = $blocked > 0 ? 'warning' : 'success';
 				$message = sprintf(
 					/* translators: 1: deleted category count, 2: blocked category count. */
-					__( '%1$d categories deleted. %2$d categories were not deleted because they still have events.', 'presto' ),
+					__( '%1$d categories deleted. %2$d categories were not deleted because they still have events.', 'moqbo' ),
 					$deleted,
 					$blocked
 				);
 				break;
 			case 'no_selection':
 				$type    = 'warning';
-				$message = __( 'Select at least one item first.', 'presto' );
+				$message = __( 'Select at least one item first.', 'moqbo' );
 				break;
 		}
 
@@ -1231,6 +1231,6 @@ class Presto_Admin {
 	 * @return string
 	 */
 	private static function asset_version( $path ) {
-		return file_exists( $path ) ? (string) filemtime( $path ) : PRESTO_VERSION;
+		return file_exists( $path ) ? (string) filemtime( $path ) : MOQBO_VERSION;
 	}
 }
