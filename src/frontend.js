@@ -8,8 +8,10 @@ const DEFAULT_RESPONSIVE_BREAKPOINT = 700;
 const WEEK_GRID_STEP = 60;
 const MIN_WEEK_GRID_HEIGHT = 240;
 const EVENT_POPOVER_MARGIN = 12;
+
 let activeModal = null;
 let lastFocusedElement = null;
+
 const datePickerSyncContainers = new WeakSet();
 
 function padNumber(value) {

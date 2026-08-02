@@ -12,7 +12,7 @@ Lightweight calendar with event admin, categories, responsive shortcodes, and an
 
 == Description ==
 
-Moqbo adds an event calendar to WordPress without the overhead of a large event-management suite. Create categories, add timed or all-day events, publish a responsive calendar with `[moqbo]`, retrieve the next date for a named event with `[moqbo-getdate]`, and optionally expose event data through a controlled REST API.
+Moqbo is a WordPress event calendar plugin for managing categorized timed and all-day events. It stores events and categories in site-specific custom database tables, provides administration screens for managing that data, renders frontend calendars through shortcodes, and can expose selected read and write operations through an optional REST API.
 
 Features include:
 
@@ -153,6 +153,27 @@ No. Moqbo blocks deletion of categories that still have events.
 = What happens when I uninstall Moqbo? =
 
 Uninstalling Moqbo removes its custom database tables and settings. Export or back up event data before uninstalling if you need to keep it.
+
+== Development and Source Code ==
+
+The complete development source for Moqbo is publicly maintained at:
+
+https://github.com/kaanlogic/moqbo
+
+The generated files `assets/dist/frontend.js` and `assets/dist/frontend.css` are built from `src/frontend.js` and its npm imports. Do not edit the generated files directly.
+
+To reproduce the distributed frontend assets, install Node.js 18 or newer and run these commands from the plugin directory:
+
+`npm ci`
+
+`npm run build`
+
+Exact dependency versions and integrity hashes are recorded in `package-lock.json`. Licenses are listed in `third-party-notices.txt`. Source code for the bundled runtime libraries is available from their maintained public repositories:
+
+* Schedule-X Calendar and Theme: https://github.com/schedule-x/schedule-x
+* Preact: https://github.com/preactjs/preact
+* Preact Signals and Signals Core: https://github.com/preactjs/signals
+* Temporal Polyfill and Temporal Spec: https://github.com/fullcalendar/temporal-polyfill
 
 == Changelog ==
 

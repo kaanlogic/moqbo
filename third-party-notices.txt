@@ -6,36 +6,43 @@ Package: @schedule-x/calendar
 Version: 4.6.0
 License: MIT
 Copyright / Author: Tom Osterlund
+Source: https://github.com/schedule-x/schedule-x
 
 Package: @schedule-x/theme-default
 Version: 4.6.0
 License: MIT
 Copyright / Author: Tom Osterlund
+Source: https://github.com/schedule-x/schedule-x
 
 Package: @preact/signals
 Version: 2.9.1
 License: MIT
 Copyright / Author: Copyright (c) 2022-present Preact Team
+Source: https://github.com/preactjs/signals
 
 Package: @preact/signals-core
 Version: 1.14.2
 License: MIT
 Copyright / Author: Copyright (c) 2022-present Preact Team
+Source: https://github.com/preactjs/signals
 
 Package: preact
 Version: 10.29.2
 License: MIT
 Copyright / Author: Copyright (c) 2015-present Jason Miller
+Source: https://github.com/preactjs/preact
 
 Package: temporal-polyfill
 Version: 0.3.0
 License: MIT
 Copyright / Author: Copyright (c) 2024 Adam Shaw
+Source: https://github.com/fullcalendar/temporal-polyfill
 
 Package: temporal-spec
 Version: 0.3.0
 License: ISC
 Copyright / Author: Copyright 2017, 2018, 2019, 2020 ECMA International
+Source: https://github.com/fullcalendar/temporal-polyfill
 
 MIT License Text
 

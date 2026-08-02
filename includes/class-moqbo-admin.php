@@ -28,6 +28,20 @@ class Moqbo_Admin {
 	private static $category_errors = array();
 
 	/**
+	 * Normalized event form submission retained for validation-error rendering.
+	 *
+	 * @var array|null
+	 */
+	private static $event_submission = null;
+
+	/**
+	 * Normalized category form submission retained for validation-error rendering.
+	 *
+	 * @var array|null
+	 */
+	private static $category_submission = null;
+
+	/**
 	 * Register admin hooks.
 	 */
 	public static function init() {
@@ -41,13 +55,14 @@ class Moqbo_Admin {
 	 * Handle writes and destructive actions before wp-admin sends output.
 	 */
 	public static function handle_admin_requests() {
-		$page = isset( $_REQUEST['page'] ) ? sanitize_key( wp_unslash( $_REQUEST['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page           = self::request_string( $_GET, 'page', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin page routing.
+		$request_action = self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing; selected handlers verify POST nonces.
 
 		if ( 'moqbo' === $page ) {
 			self::handle_event_delete_request();
 		}
 
-		if ( 'moqbo-add-event' === $page && self::is_post_request( 'moqbo_event_nonce' ) ) {
+		if ( 'moqbo-add-event' === $page && 'save_event' === $request_action && self::is_post_request() ) {
 			$result = self::handle_event_form_submission();
 
 			if ( is_wp_error( $result ) ) {
@@ -58,7 +73,7 @@ class Moqbo_Admin {
 		if ( 'moqbo-categories' === $page ) {
 			self::handle_category_delete_request();
 
-			if ( self::is_post_request( 'moqbo_category_nonce' ) ) {
+			if ( 'save_category' === $request_action && self::is_post_request() ) {
 				$result = self::handle_category_form_submission();
 
 				if ( is_wp_error( $result ) ) {
@@ -223,10 +238,13 @@ class Moqbo_Admin {
 
 			<?php self::print_notices(); ?>
 
-			<form method="post">
+			<form class="search-form" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
 				<input type="hidden" name="page" value="moqbo">
-				<?php wp_nonce_field( 'bulk-events' ); ?>
 				<?php $list_table->search_box( __( 'Search Events', 'moqbo' ), 'moqbo-events' ); ?>
+			</form>
+
+			<form method="post" action="<?php echo esc_url( self::list_table_form_url( 'moqbo', 'bulk_events' ) ); ?>">
+				<?php wp_nonce_field( 'bulk-events' ); ?>
 				<?php $list_table->display(); ?>
 			</form>
 		</div>
@@ -239,7 +257,7 @@ class Moqbo_Admin {
 	public static function render_event_form_page() {
 		self::require_capability();
 
-		$posted_original_slug = self::posted_original_slug();
+		$posted_original_slug = is_array( self::$event_submission ) ? self::$event_submission['moqbo_original_slug'] : '';
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'event' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'event' ) : '' );
 		$event         = $editing ? Moqbo_DB::get_event( $original_slug ) : null;
@@ -279,7 +297,7 @@ class Moqbo_Admin {
 				</div>
 			<?php endif; ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-add-event' ) ); ?>">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-add-event&moqbo_action=save_event' ) ); ?>">
 				<?php wp_nonce_field( 'moqbo_save_event', 'moqbo_event_nonce' ); ?>
 				<input type="hidden" name="moqbo_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
@@ -364,7 +382,7 @@ class Moqbo_Admin {
 		self::require_capability();
 		self::load_list_table_classes();
 
-		$posted_original_slug = self::posted_original_slug();
+		$posted_original_slug = is_array( self::$category_submission ) ? self::$category_submission['moqbo_original_slug'] : '';
 		$editing              = '' !== $posted_original_slug || self::is_edit_request( 'category' );
 		$original_slug        = '' !== $posted_original_slug ? $posted_original_slug : ( $editing ? self::get_request_slug( 'category' ) : '' );
 		$category      = $editing ? Moqbo_DB::get_category( $original_slug ) : null;
@@ -393,7 +411,7 @@ class Moqbo_Admin {
 				<div id="col-left">
 					<div class="col-wrap form-wrap">
 						<h2><?php echo esc_html( $editing ? __( 'Edit Category', 'moqbo' ) : __( 'Add Category', 'moqbo' ) ); ?></h2>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-categories' ) ); ?>">
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=moqbo-categories&moqbo_action=save_category' ) ); ?>">
 							<?php wp_nonce_field( 'moqbo_save_category', 'moqbo_category_nonce' ); ?>
 							<input type="hidden" name="moqbo_original_slug" value="<?php echo esc_attr( $editing ? $original_slug : '' ); ?>">
 
@@ -424,8 +442,7 @@ class Moqbo_Admin {
 
 				<div id="col-right">
 					<div class="col-wrap">
-						<form method="post">
-							<input type="hidden" name="page" value="moqbo-categories">
+						<form method="post" action="<?php echo esc_url( self::list_table_form_url( 'moqbo-categories', 'bulk_categories' ) ); ?>">
 							<?php wp_nonce_field( 'bulk-categories' ); ?>
 							<?php $list_table->display(); ?>
 						</form>
@@ -597,10 +614,6 @@ class Moqbo_Admin {
 	 * Load list table dependencies on admin pages only.
 	 */
 	private static function load_list_table_classes() {
-		if ( ! class_exists( 'WP_List_Table' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
-		}
-
 		require_once MOQBO_DIR . 'includes/class-moqbo-events-list-table.php';
 		require_once MOQBO_DIR . 'includes/class-moqbo-categories-list-table.php';
 	}
@@ -609,24 +622,39 @@ class Moqbo_Admin {
 	 * Handle event row and bulk delete requests.
 	 */
 	private static function handle_event_delete_request() {
-		$action = self::current_table_action();
+		$is_post = self::is_post_request();
 
-		if ( 'delete' !== $action ) {
-			return;
+		if ( $is_post ) {
+			if ( 'bulk_events' !== self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+				return;
+			}
+
+			self::require_capability();
+			check_admin_referer( 'bulk-events' );
+
+			if ( 'delete' !== self::current_table_action( $_POST ) ) {
+				return;
+			}
+
+			$slugs = self::sanitize_slug_list( $_POST, 'event' );
+		} else {
+			if ( 'delete' !== self::current_table_action( $_GET ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+				return;
+			}
+
+			self::require_capability();
+			$slug = self::request_string( $_GET, 'event', 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
+
+			if ( '' === $slug ) {
+				self::redirect_to( 'moqbo', array( 'moqbo_notice' => 'no_selection' ) );
+			}
+
+			check_admin_referer( 'moqbo_delete_event_' . $slug );
+			$slugs = array( $slug );
 		}
-
-		self::require_capability();
-
-		$slugs = isset( $_REQUEST['event'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['event'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
 			self::redirect_to( 'moqbo', array( 'moqbo_notice' => 'no_selection' ) );
-		}
-
-		if ( 1 === count( $slugs ) && isset( $_GET['event'] ) ) {
-			check_admin_referer( 'moqbo_delete_event_' . reset( $slugs ) );
-		} else {
-			check_admin_referer( 'bulk-events' );
 		}
 
 		$deleted = Moqbo_DB::delete_events( $slugs );
@@ -644,24 +672,39 @@ class Moqbo_Admin {
 	 * Handle category row and bulk delete requests.
 	 */
 	private static function handle_category_delete_request() {
-		$action = self::current_table_action();
+		$is_post = self::is_post_request();
 
-		if ( 'delete' !== $action ) {
-			return;
+		if ( $is_post ) {
+			if ( 'bulk_categories' !== self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+				return;
+			}
+
+			self::require_capability();
+			check_admin_referer( 'bulk-categories' );
+
+			if ( 'delete' !== self::current_table_action( $_POST ) ) {
+				return;
+			}
+
+			$slugs = self::sanitize_slug_list( $_POST, 'category' );
+		} else {
+			if ( 'delete' !== self::current_table_action( $_GET ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+				return;
+			}
+
+			self::require_capability();
+			$slug = self::request_string( $_GET, 'category', 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
+
+			if ( '' === $slug ) {
+				self::redirect_to( 'moqbo-categories', array( 'moqbo_notice' => 'no_selection' ) );
+			}
+
+			check_admin_referer( 'moqbo_delete_category_' . $slug );
+			$slugs = array( $slug );
 		}
-
-		self::require_capability();
-
-		$slugs = isset( $_REQUEST['category'] ) ? array_filter( (array) map_deep( wp_unslash( (array) $_REQUEST['category'] ), 'sanitize_title' ) ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( empty( $slugs ) ) {
 			self::redirect_to( 'moqbo-categories', array( 'moqbo_notice' => 'no_selection' ) );
-		}
-
-		if ( 1 === count( $slugs ) && isset( $_GET['category'] ) ) {
-			check_admin_referer( 'moqbo_delete_category_' . reset( $slugs ) );
-		} else {
-			check_admin_referer( 'bulk-categories' );
 		}
 
 		$result = Moqbo_DB::delete_categories( $slugs );
@@ -685,8 +728,9 @@ class Moqbo_Admin {
 		self::require_capability();
 		check_admin_referer( 'moqbo_save_event', 'moqbo_event_nonce' );
 
-		$raw           = wp_unslash( $_POST );
-		$original_slug = isset( $raw['moqbo_original_slug'] ) ? sanitize_title( $raw['moqbo_original_slug'] ) : '';
+		$submission             = self::sanitize_event_submission( $_POST );
+		self::$event_submission = $submission;
+		$original_slug          = $submission['moqbo_original_slug'];
 		$editing       = '' !== $original_slug;
 		$existing      = $editing ? Moqbo_DB::get_event( $original_slug ) : null;
 
@@ -694,7 +738,7 @@ class Moqbo_Admin {
 			return new WP_Error( 'moqbo_missing_event', __( 'The event you tried to update no longer exists.', 'moqbo' ) );
 		}
 
-		$validated = self::validate_event_submission( $original_slug, $raw );
+		$validated = self::validate_event_submission( $original_slug, $submission );
 
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -727,8 +771,9 @@ class Moqbo_Admin {
 		self::require_capability();
 		check_admin_referer( 'moqbo_save_category', 'moqbo_category_nonce' );
 
-		$raw           = wp_unslash( $_POST );
-		$original_slug = isset( $raw['moqbo_original_slug'] ) ? sanitize_title( $raw['moqbo_original_slug'] ) : '';
+		$submission                = self::sanitize_category_submission( $_POST );
+		self::$category_submission = $submission;
+		$original_slug             = $submission['moqbo_original_slug'];
 		$editing       = '' !== $original_slug;
 		$existing      = $editing ? Moqbo_DB::get_category( $original_slug ) : null;
 
@@ -736,7 +781,7 @@ class Moqbo_Admin {
 			return new WP_Error( 'moqbo_missing_category', __( 'The category you tried to update no longer exists.', 'moqbo' ) );
 		}
 
-		$validated = self::validate_category_submission( $original_slug, $raw );
+		$validated = self::validate_category_submission( $original_slug, $submission );
 
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -761,20 +806,58 @@ class Moqbo_Admin {
 	}
 
 	/**
-	 * Validate event POST data.
+	 * Normalize expected event form fields after nonce verification.
+	 *
+	 * @param array $raw Raw POST data.
+	 * @return array
+	 */
+	private static function sanitize_event_submission( array $raw ) {
+		return array(
+			'moqbo_original_slug' => self::request_string( $raw, 'moqbo_original_slug', 'sanitize_title' ),
+			'name'                => self::request_string( $raw, 'name' ),
+			'slug'                => self::request_string( $raw, 'slug', 'sanitize_title' ),
+			'location'            => self::request_string( $raw, 'location' ),
+			'auto_generate_slug'  => '1' === self::request_string( $raw, 'auto_generate_slug' ),
+			'category_slug'       => self::request_string( $raw, 'category_slug', 'sanitize_title' ),
+			'description'         => self::request_string( $raw, 'description', 'sanitize_textarea_field' ),
+			'all_day'             => '1' === self::request_string( $raw, 'all_day' ),
+			'start_date'          => self::request_string( $raw, 'start_date' ),
+			'start_time'          => self::request_string( $raw, 'start_time' ),
+			'end_date'            => self::request_string( $raw, 'end_date' ),
+			'end_time'            => self::request_string( $raw, 'end_time' ),
+		);
+	}
+
+	/**
+	 * Normalize expected category form fields after nonce verification.
+	 *
+	 * @param array $raw Raw POST data.
+	 * @return array
+	 */
+	private static function sanitize_category_submission( array $raw ) {
+		return array(
+			'moqbo_original_slug' => self::request_string( $raw, 'moqbo_original_slug', 'sanitize_title' ),
+			'name'                => self::request_string( $raw, 'name' ),
+			'slug'                => self::request_string( $raw, 'slug', 'sanitize_title' ),
+			'color'               => self::request_string( $raw, 'color', 'sanitize_hex_color' ),
+		);
+	}
+
+	/**
+	 * Validate normalized event form data.
 	 *
 	 * @param string $original_slug Existing slug when editing.
-	 * @param array  $raw Unslashed POST data.
+	 * @param array  $raw Normalized form data.
 	 * @return array|WP_Error
 	 */
 	private static function validate_event_submission( $original_slug, array $raw ) {
 		$errors = new WP_Error();
 
-		$name               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-		$location           = isset( $raw['location'] ) ? sanitize_text_field( $raw['location'] ) : '';
-		$auto_generate_slug = ! empty( $raw['auto_generate_slug'] );
-		$start_date         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
-		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : ( isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '' );
+		$name               = $raw['name'];
+		$location           = $raw['location'];
+		$auto_generate_slug = $raw['auto_generate_slug'];
+		$start_date         = $raw['start_date'];
+		$slug               = $auto_generate_slug ? self::generate_event_slug( $start_date, $name ) : $raw['slug'];
 
 		if ( '' === $name ) {
 			$errors->add( 'missing_name', __( 'Event name is required.', 'moqbo' ) );
@@ -794,16 +877,16 @@ class Moqbo_Admin {
 			$errors->add( 'duplicate_slug', __( 'An event with this slug already exists.', 'moqbo' ) );
 		}
 
-		$category_slug = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
+		$category_slug = $raw['category_slug'];
 
 		if ( '' === $category_slug || ! Moqbo_DB::get_category( $category_slug ) ) {
 			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
 		}
 
-		$all_day    = ! empty( $raw['all_day'] );
-		$end_date   = isset( $raw['end_date'] ) ? sanitize_text_field( $raw['end_date'] ) : '';
-		$start_time = $all_day ? '00:00' : self::default_time( isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '', '09:00' );
-		$end_time   = $all_day ? '00:00' : self::default_time( isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '', '10:00' );
+		$all_day    = $raw['all_day'];
+		$end_date   = $raw['end_date'];
+		$start_time = $all_day ? '00:00' : self::default_time( $raw['start_time'], '09:00' );
+		$end_time   = $all_day ? '00:00' : self::default_time( $raw['end_time'], '10:00' );
 
 		$start = self::validate_local_datetime( $start_date, $start_time, __( 'Start', 'moqbo' ) );
 		$end   = self::validate_local_datetime( $end_date, $end_time, __( 'End', 'moqbo' ) );
@@ -837,24 +920,24 @@ class Moqbo_Admin {
 			'start_at'      => $start->format( 'Y-m-d H:i:s' ),
 			'end_at'        => $end->format( 'Y-m-d H:i:s' ),
 			'all_day'       => $all_day ? 1 : 0,
-			'description'   => isset( $raw['description'] ) ? sanitize_textarea_field( $raw['description'] ) : '',
+			'description'   => $raw['description'],
 			'category_slug' => $category_slug,
 		);
 	}
 
 	/**
-	 * Validate category POST data.
+	 * Validate normalized category form data.
 	 *
 	 * @param string $original_slug Existing slug when editing.
-	 * @param array  $raw Unslashed POST data.
+	 * @param array  $raw Normalized form data.
 	 * @return array|WP_Error
 	 */
 	private static function validate_category_submission( $original_slug, array $raw ) {
 		$errors = new WP_Error();
 
-		$name  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-		$slug  = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
-		$color = isset( $raw['color'] ) ? sanitize_hex_color( $raw['color'] ) : '';
+		$name  = $raw['name'];
+		$slug  = $raw['slug'];
+		$color = $raw['color'];
 
 		if ( '' === $name ) {
 			$errors->add( 'missing_name', __( 'Category name is required.', 'moqbo' ) );
@@ -926,22 +1009,18 @@ class Moqbo_Admin {
 			);
 		}
 
-		$event_nonce = isset( $_POST['moqbo_event_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['moqbo_event_nonce'] ) ) : '';
-
-		if ( self::is_post_request( 'moqbo_event_nonce' ) && wp_verify_nonce( $event_nonce, 'moqbo_save_event' ) ) {
-			$raw = wp_unslash( $_POST );
-
-			$defaults['name']               = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-			$defaults['slug']               = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
-			$defaults['location']           = isset( $raw['location'] ) ? sanitize_text_field( $raw['location'] ) : '';
-			$defaults['auto_generate_slug'] = ! empty( $raw['auto_generate_slug'] );
-			$defaults['start_date']         = isset( $raw['start_date'] ) ? sanitize_text_field( $raw['start_date'] ) : '';
-			$defaults['start_time']         = isset( $raw['start_time'] ) ? sanitize_text_field( $raw['start_time'] ) : '';
-			$defaults['end_date']           = isset( $raw['end_date'] ) ? sanitize_text_field( $raw['end_date'] ) : '';
-			$defaults['end_time']           = isset( $raw['end_time'] ) ? sanitize_text_field( $raw['end_time'] ) : '';
-			$defaults['all_day']            = ! empty( $raw['all_day'] );
-			$defaults['description']        = isset( $raw['description'] ) ? sanitize_textarea_field( $raw['description'] ) : '';
-			$defaults['category_slug']      = isset( $raw['category_slug'] ) ? sanitize_title( $raw['category_slug'] ) : '';
+		if ( is_array( self::$event_submission ) ) {
+			$defaults['name']               = self::$event_submission['name'];
+			$defaults['slug']               = self::$event_submission['slug'];
+			$defaults['location']           = self::$event_submission['location'];
+			$defaults['auto_generate_slug'] = self::$event_submission['auto_generate_slug'];
+			$defaults['start_date']         = self::$event_submission['start_date'];
+			$defaults['start_time']         = self::$event_submission['start_time'];
+			$defaults['end_date']           = self::$event_submission['end_date'];
+			$defaults['end_time']           = self::$event_submission['end_time'];
+			$defaults['all_day']            = self::$event_submission['all_day'];
+			$defaults['description']        = self::$event_submission['description'];
+			$defaults['category_slug']      = self::$event_submission['category_slug'];
 		}
 
 		return $defaults;
@@ -968,15 +1047,10 @@ class Moqbo_Admin {
 			);
 		}
 
-		$category_nonce = isset( $_POST['moqbo_category_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['moqbo_category_nonce'] ) ) : '';
-
-		if ( self::is_post_request( 'moqbo_category_nonce' ) && wp_verify_nonce( $category_nonce, 'moqbo_save_category' ) ) {
-			$raw = wp_unslash( $_POST );
-
-			$defaults['name']  = isset( $raw['name'] ) ? sanitize_text_field( $raw['name'] ) : '';
-			$defaults['slug']  = isset( $raw['slug'] ) ? sanitize_title( $raw['slug'] ) : '';
-			$submitted_color   = isset( $raw['color'] ) ? sanitize_hex_color( $raw['color'] ) : '';
-			$defaults['color'] = $submitted_color ? $submitted_color : '#2271b1';
+		if ( is_array( self::$category_submission ) ) {
+			$defaults['name']  = self::$category_submission['name'];
+			$defaults['slug']  = self::$category_submission['slug'];
+			$defaults['color'] = self::$category_submission['color'] ? self::$category_submission['color'] : '#2271b1';
 		}
 
 		return $defaults;
@@ -1082,20 +1156,78 @@ class Moqbo_Admin {
 	}
 
 	/**
-	 * Return current list table action from request data.
+	 * Sanitize scalar request data with a context-specific callback.
 	 *
+	 * @param array    $request Request data.
+	 * @param string   $key Request key.
+	 * @param callable $sanitize_callback Sanitization callback.
 	 * @return string
 	 */
-	private static function current_table_action() {
-		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( '' !== $action && '-1' !== $action ) {
-			return $action;
+	private static function request_string( array $request, $key, $sanitize_callback = 'sanitize_text_field' ) {
+		if ( ! isset( $request[ $key ] ) || ! is_string( $request[ $key ] ) ) {
+			return '';
 		}
 
-		$action2 = isset( $_REQUEST['action2'] ) ? sanitize_key( wp_unslash( $_REQUEST['action2'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$value = call_user_func( $sanitize_callback, wp_unslash( $request[ $key ] ) );
 
-		return '-1' === $action2 ? '' : $action2;
+		return is_scalar( $value ) ? (string) $value : '';
+	}
+
+	/**
+	 * Sanitize an integer request value.
+	 *
+	 * @param array  $request Request data.
+	 * @param string $key Request key.
+	 * @return int
+	 */
+	private static function request_integer( array $request, $key ) {
+		if ( ! isset( $request[ $key ] ) || ! is_string( $request[ $key ] ) ) {
+			return 0;
+		}
+
+		return absint( wp_unslash( $request[ $key ] ) );
+	}
+
+	/**
+	 * Sanitize one or more submitted slugs.
+	 *
+	 * @param array  $request Request data.
+	 * @param string $key Request key.
+	 * @return array
+	 */
+	private static function sanitize_slug_list( array $request, $key ) {
+		$values = isset( $request[ $key ] ) && is_array( $request[ $key ] ) ? $request[ $key ] : array();
+		$slugs  = array();
+
+		foreach ( $values as $item ) {
+			if ( ! is_string( $item ) ) {
+				continue;
+			}
+
+			$slug = sanitize_title( wp_unslash( $item ) );
+
+			if ( '' !== $slug ) {
+				$slugs[] = $slug;
+			}
+		}
+
+		return array_values( array_unique( $slugs ) );
+	}
+
+	/**
+	 * Return current list table action from request data.
+	 *
+	 * @param array $request GET or POST request data.
+	 * @return string
+	 */
+	private static function current_table_action( array $request ) {
+		$action = self::request_string( $request, 'action', 'sanitize_key' );
+
+		if ( '-1' === $action || '' === $action ) {
+			$action = self::request_string( $request, 'action2', 'sanitize_key' );
+		}
+
+		return 'delete' === $action ? $action : '';
 	}
 
 	/**
@@ -1105,9 +1237,9 @@ class Moqbo_Admin {
 	 * @return bool
 	 */
 	private static function is_edit_request( $key ) {
-		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = self::request_string( $_GET, 'action', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
 
-		return 'edit' === $action && isset( $_GET[ $key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		return 'edit' === $action && '' !== self::request_string( $_GET, $key, 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
 	}
 
 	/**
@@ -1117,28 +1249,18 @@ class Moqbo_Admin {
 	 * @return string
 	 */
 	private static function get_request_slug( $key ) {
-		return isset( $_GET[ $key ] ) ? sanitize_title( wp_unslash( $_GET[ $key ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		return self::request_string( $_GET, $key, 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen selection.
 	}
 
 	/**
-	 * Get an original slug from form submissions.
+	 * Check whether the current request uses POST.
 	 *
-	 * @return string
-	 */
-	private static function posted_original_slug() {
-		return isset( $_POST['moqbo_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['moqbo_original_slug'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-	}
-
-	/**
-	 * Check for a POST submission with a specific nonce field.
-	 *
-	 * @param string $nonce_field Nonce field name.
 	 * @return bool
 	 */
-	private static function is_post_request( $nonce_field ) {
+	private static function is_post_request() {
 		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
 
-		return 'post' === $method && isset( $_POST[ $nonce_field ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		return 'post' === $method;
 	}
 
 	/**
@@ -1148,6 +1270,36 @@ class Moqbo_Admin {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to manage Moqbo.', 'moqbo' ) );
 		}
+	}
+
+	/**
+	 * Build a bulk form URL that preserves read-only list state.
+	 *
+	 * @param string $page Admin page slug.
+	 * @param string $action Moqbo form action.
+	 * @return string
+	 */
+	private static function list_table_form_url( $page, $action ) {
+		$args = array(
+			'page'         => $page,
+			'moqbo_action' => $action,
+		);
+
+		foreach ( array( 's', 'orderby', 'order' ) as $key ) {
+			$value = self::request_string( $_GET, $key ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list state.
+
+			if ( '' !== $value ) {
+				$args[ $key ] = $value;
+			}
+		}
+
+		$paged = self::request_integer( $_GET, 'paged' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination state.
+
+		if ( $paged > 1 ) {
+			$args['paged'] = $paged;
+		}
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
 	}
 
 	/**
@@ -1167,7 +1319,7 @@ class Moqbo_Admin {
 	 * Print redirect notices.
 	 */
 	private static function print_notices() {
-		$notice = isset( $_GET['moqbo_notice'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$notice = self::request_string( $_GET, 'moqbo_notice', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice selection.
 
 		if ( '' === $notice ) {
 			return;
@@ -1184,7 +1336,7 @@ class Moqbo_Admin {
 				$message = __( 'Category saved.', 'moqbo' );
 				break;
 			case 'events_deleted':
-				$deleted = isset( $_GET['deleted'] ) ? absint( $_GET['deleted'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$deleted = self::request_integer( $_GET, 'deleted' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
 				$message = sprintf(
 					/* translators: %d: deleted event count. */
 					_n( '%d event deleted.', '%d events deleted.', $deleted, 'moqbo' ),
@@ -1192,8 +1344,8 @@ class Moqbo_Admin {
 				);
 				break;
 			case 'categories_deleted':
-				$deleted = isset( $_GET['deleted'] ) ? absint( $_GET['deleted'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-				$blocked = isset( $_GET['blocked'] ) ? absint( $_GET['blocked'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$deleted = self::request_integer( $_GET, 'deleted' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
+				$blocked = self::request_integer( $_GET, 'blocked' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
 				$type    = $blocked > 0 ? 'warning' : 'success';
 				$message = sprintf(
 					/* translators: 1: deleted category count, 2: blocked category count. */

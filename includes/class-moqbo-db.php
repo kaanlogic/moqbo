@@ -50,15 +50,6 @@ class Moqbo_DB {
 	}
 
 	/**
-	 * Run schema migrations when the stored DB version lags the plugin.
-	 */
-	public static function maybe_upgrade() {
-		if ( get_option( 'moqbo_db_version' ) !== MOQBO_DB_VERSION ) {
-			self::create_schema();
-		}
-	}
-
-	/**
 	 * Get the events table name for the current site.
 	 *
 	 * @return string
@@ -81,11 +72,12 @@ class Moqbo_DB {
 	}
 
 	/**
-	 * Create or update custom tables.
+	 * Create custom tables.
 	 */
 	public static function create_schema() {
 		global $wpdb;
 
+		// dbDelta() is defined in this core file and is called immediately below.
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 		$charset_collate = $wpdb->get_charset_collate();
@@ -122,59 +114,12 @@ class Moqbo_DB {
 
 		dbDelta( $events_sql );
 		dbDelta( $categories_sql );
-		self::reorder_events_columns();
 
-		update_option( 'moqbo_db_version', MOQBO_DB_VERSION );
 		self::flush_cache();
 	}
 
 	/**
-	 * Reorder existing event columns to match Moqbo's admin field flow.
-	 */
-	private static function reorder_events_columns() {
-		global $wpdb;
-
-		$events_table = self::events_table();
-		$expected     = array( 'name', 'slug', 'location', 'category_slug', 'description', 'all_day', 'start_at', 'end_at', 'created_at', 'updated_at' );
-		$columns      = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema introspection for a custom table during migration.
-			$wpdb->prepare( 'DESCRIBE %i', $events_table ),
-			0
-		);
-
-		if ( array_slice( $columns, 0, count( $expected ) ) === $expected ) {
-			return;
-		}
-
-		if ( array_diff( $expected, $columns ) ) {
-			return;
-		}
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional custom table migration.
-		$altered = $wpdb->query(
-			$wpdb->prepare(
-				'ALTER TABLE %i
-				MODIFY name varchar(255) NOT NULL FIRST,
-				MODIFY slug varchar(191) NOT NULL AFTER name,
-				MODIFY location varchar(255) NOT NULL DEFAULT \'\' AFTER slug,
-				MODIFY category_slug varchar(191) NOT NULL AFTER location,
-				MODIFY description text NULL AFTER category_slug,
-				MODIFY all_day tinyint(1) NOT NULL DEFAULT 0 AFTER description,
-				MODIFY start_at datetime NOT NULL AFTER all_day,
-				MODIFY end_at datetime NOT NULL AFTER start_at,
-				MODIFY created_at datetime NOT NULL AFTER end_at,
-				MODIFY updated_at datetime NOT NULL AFTER created_at',
-				$events_table
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
-
-		if ( false !== $altered ) {
-			self::flush_cache();
-		}
-	}
-
-	/**
-	 * Drop custom tables and options for the current site.
+	 * Drop custom tables for the current site.
 	 */
 	public static function drop_schema() {
 		global $wpdb;
@@ -182,7 +127,6 @@ class Moqbo_DB {
 		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::events_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
 		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', self::categories_table() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional uninstall cleanup for a custom table.
 
-		delete_option( 'moqbo_db_version' );
 		self::flush_cache();
 	}
 
@@ -220,12 +164,13 @@ class Moqbo_DB {
 	 */
 	public static function count_categories( $args = array() ) {
 		global $wpdb;
-		$args = wp_parse_args(
+		$args           = wp_parse_args(
 			$args,
 			array(
 				'search' => '',
 			)
 		);
+		$args['search'] = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
 
 		$cache_key = self::cache_key( 'count_categories', $args );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -234,20 +179,18 @@ class Moqbo_DB {
 			return (int) $cached;
 		}
 
-		$where  = array( '1=1' );
-		$params = array();
-
-		if ( ! empty( $args['search'] ) ) {
-			$like    = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[] = '(name LIKE %s OR slug LIKE %s)';
-			$params[] = $like;
-			$params[] = $like;
-		}
-
-		$sql    = 'SELECT COUNT(*) FROM %i WHERE ' . implode( ' AND ', $where );
-		$params = array_merge( array( self::categories_table() ), $params );
-		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
-		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
+		$like  = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+			$wpdb->prepare(
+				'SELECT COUNT(*)
+				FROM %i
+				WHERE ( %s = \'\' OR name LIKE %s OR slug LIKE %s )',
+				self::categories_table(),
+				$args['search'],
+				$like,
+				$like
+			)
+		);
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
 
@@ -270,18 +213,21 @@ class Moqbo_DB {
 			'number'  => 0,
 			'offset'  => 0,
 		);
-		$args     = wp_parse_args( $args, $defaults );
-		$args['number'] = (int) $args['number'];
-		$args['offset'] = (int) $args['offset'];
+		$args            = wp_parse_args( $args, $defaults );
+		$args['search']  = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
+		$args['orderby'] = is_scalar( $args['orderby'] ) ? sanitize_key( (string) $args['orderby'] ) : 'name';
+		$args['order']   = is_scalar( $args['order'] ) ? strtoupper( sanitize_key( (string) $args['order'] ) ) : 'ASC';
+		$args['number']  = is_scalar( $args['number'] ) ? max( 0, (int) $args['number'] ) : 0;
+		$args['offset']  = is_scalar( $args['offset'] ) ? max( 0, (int) $args['offset'] ) : 0;
 
 		$orderby_map = array(
-			'name'  => 'c.name',
-			'slug'  => 'c.slug',
+			'name'  => 'name',
+			'slug'  => 'slug',
 			'count' => 'event_count',
 		);
 
-		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'c.name';
-		$order   = 'DESC' === strtoupper( $args['order'] ) ? 'DESC' : 'ASC';
+		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'name';
+		$order   = 'DESC' === $args['order'] ? 'DESC' : 'ASC';
 
 		$cache_key = self::cache_key( 'categories', $args );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -290,33 +236,52 @@ class Moqbo_DB {
 			return $cached;
 		}
 
-		$where  = array( '1=1' );
-		$params = array();
+		$like  = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+		$limit = $args['number'] > 0 ? $args['number'] : PHP_INT_MAX;
 
-		if ( '' !== $args['search'] ) {
-			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[]  = '(c.name LIKE %s OR c.slug LIKE %s)';
-			$params[] = $like;
-			$params[] = $like;
+		if ( 'DESC' === $order ) {
+			$categories = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare(
+					'SELECT c.slug, c.name, c.color, c.created_at, c.updated_at, COUNT(e.slug) AS event_count
+					FROM %i c
+					LEFT JOIN %i e ON e.category_slug = c.slug
+					WHERE ( %s = \'\' OR c.name LIKE %s OR c.slug LIKE %s )
+					GROUP BY c.slug, c.name, c.color, c.created_at, c.updated_at
+					ORDER BY %i DESC
+					LIMIT %d OFFSET %d',
+					self::categories_table(),
+					self::events_table(),
+					$args['search'],
+					$like,
+					$like,
+					$orderby,
+					$limit,
+					$args['offset']
+				),
+				ARRAY_A
+			);
+		} else {
+			$categories = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare(
+					'SELECT c.slug, c.name, c.color, c.created_at, c.updated_at, COUNT(e.slug) AS event_count
+					FROM %i c
+					LEFT JOIN %i e ON e.category_slug = c.slug
+					WHERE ( %s = \'\' OR c.name LIKE %s OR c.slug LIKE %s )
+					GROUP BY c.slug, c.name, c.color, c.created_at, c.updated_at
+					ORDER BY %i ASC
+					LIMIT %d OFFSET %d',
+					self::categories_table(),
+					self::events_table(),
+					$args['search'],
+					$like,
+					$like,
+					$orderby,
+					$limit,
+					$args['offset']
+				),
+				ARRAY_A
+			);
 		}
-
-		$sql = 'SELECT c.slug, c.name, c.color, c.created_at, c.updated_at, COUNT(e.slug) AS event_count
-			FROM %i c
-			LEFT JOIN %i e ON e.category_slug = c.slug
-			WHERE ' . implode( ' AND ', $where ) . '
-			GROUP BY c.slug, c.name, c.color, c.created_at, c.updated_at
-			ORDER BY ' . $orderby . ' ' . $order;
-
-		$params = array_merge( array( self::categories_table(), self::events_table() ), $params );
-
-		if ( $args['number'] > 0 ) {
-			$sql     .= ' LIMIT %d OFFSET %d';
-			$params[] = $args['number'];
-			$params[] = $args['offset'];
-		}
-
-		$query      = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
-		$categories = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $categories, self::CACHE_GROUP );
 
@@ -538,12 +503,13 @@ class Moqbo_DB {
 	 */
 	public static function count_events( $args = array() ) {
 		global $wpdb;
-		$args = wp_parse_args(
+		$args           = wp_parse_args(
 			$args,
 			array(
 				'search' => '',
 			)
 		);
+		$args['search'] = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
 
 		$cache_key = self::cache_key( 'count_events', $args );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -552,26 +518,28 @@ class Moqbo_DB {
 			return (int) $cached;
 		}
 
-		$where  = array( '1=1' );
-		$params = array();
-
-		if ( ! empty( $args['search'] ) ) {
-			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
+		if ( '' === $args['search'] ) {
+			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare( 'SELECT COUNT(*) FROM %i', self::events_table() )
+			);
+		} else {
+			$like  = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare(
+					'SELECT COUNT(*)
+					FROM %i e
+					LEFT JOIN %i c ON c.slug = e.category_slug
+					WHERE ( e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s )',
+					self::events_table(),
+					self::categories_table(),
+					$like,
+					$like,
+					$like,
+					$like,
+					$like
+				)
+			);
 		}
-
-		$sql = 'SELECT COUNT(*)
-			FROM %i e
-			LEFT JOIN %i c ON c.slug = e.category_slug
-			WHERE ' . implode( ' AND ', $where );
-		$params = array_merge( array( self::events_table(), self::categories_table() ), $params );
-		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE clauses are fixed internally and table names are prepared as identifiers.
-		$count  = (int) $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
 
@@ -596,28 +564,33 @@ class Moqbo_DB {
 			'number'     => 0,
 			'offset'     => 0,
 		);
-		$args     = wp_parse_args( $args, $defaults );
-		$args['number'] = (int) $args['number'];
-		$args['offset'] = (int) $args['offset'];
+		$args               = wp_parse_args( $args, $defaults );
+		$args['search']     = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
+		$args['start_date'] = is_scalar( $args['start_date'] ) ? sanitize_text_field( (string) $args['start_date'] ) : '';
+		$args['end_date']   = is_scalar( $args['end_date'] ) ? sanitize_text_field( (string) $args['end_date'] ) : '';
+		$args['orderby']    = is_scalar( $args['orderby'] ) ? sanitize_key( (string) $args['orderby'] ) : 'start';
+		$args['order']      = is_scalar( $args['order'] ) ? strtoupper( sanitize_key( (string) $args['order'] ) ) : 'ASC';
+		$args['number']     = is_scalar( $args['number'] ) ? max( 0, (int) $args['number'] ) : 0;
+		$args['offset']     = is_scalar( $args['offset'] ) ? max( 0, (int) $args['offset'] ) : 0;
 
 		$orderby_map = array(
-			'name'       => 'e.name',
-			'slug'       => 'e.slug',
-			'location'   => 'e.location',
-			'category'   => 'c.name',
-			'all_day'    => 'e.all_day',
-			'start'      => 'e.start_at',
-			'start_date' => 'e.start_at',
-			'start_time' => 'e.start_at',
-			'end'        => 'e.end_at',
-			'end_date'   => 'e.end_at',
-			'end_time'   => 'e.end_at',
-			'created_at' => 'e.created_at',
-			'updated_at' => 'e.updated_at',
+			'name'       => 'name',
+			'slug'       => 'slug',
+			'location'   => 'location',
+			'category'   => 'category_name',
+			'all_day'    => 'all_day',
+			'start'      => 'start_at',
+			'start_date' => 'start_at',
+			'start_time' => 'start_at',
+			'end'        => 'end_at',
+			'end_date'   => 'end_at',
+			'end_time'   => 'end_at',
+			'created_at' => 'created_at',
+			'updated_at' => 'updated_at',
 		);
 
-		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'e.start_at';
-		$order   = 'DESC' === strtoupper( $args['order'] ) ? 'DESC' : 'ASC';
+		$orderby = isset( $orderby_map[ $args['orderby'] ] ) ? $orderby_map[ $args['orderby'] ] : 'start_at';
+		$order   = 'DESC' === $args['order'] ? 'DESC' : 'ASC';
 
 		$cache_key = self::cache_key( 'events', $args );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -626,45 +599,70 @@ class Moqbo_DB {
 			return $cached;
 		}
 
-		$where  = array( '1=1' );
-		$params = array();
+		$like           = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+		$start_boundary = '' !== $args['start_date'] ? $args['start_date'] . ' 00:00:00' : '';
+		$end_boundary   = '' !== $args['end_date'] ? $args['end_date'] . ' 23:59:59' : '';
+		$limit          = $args['number'] > 0 ? $args['number'] : PHP_INT_MAX;
 
-		if ( '' !== $args['search'] ) {
-			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$where[]  = '(e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s)';
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
-			$params[] = $like;
+		if ( 'DESC' === $order ) {
+			$events = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare(
+					'SELECT e.*, c.name AS category_name, c.color AS category_color
+					FROM %i e
+					LEFT JOIN %i c ON c.slug = e.category_slug
+					WHERE ( %s = \'\' OR e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s )
+					AND ( %s = \'\' OR e.end_at >= %s )
+					AND ( %s = \'\' OR e.start_at <= %s )
+					ORDER BY %i DESC, e.slug ASC
+					LIMIT %d OFFSET %d',
+					self::events_table(),
+					self::categories_table(),
+					$args['search'],
+					$like,
+					$like,
+					$like,
+					$like,
+					$like,
+					$args['start_date'],
+					$start_boundary,
+					$args['end_date'],
+					$end_boundary,
+					$orderby,
+					$limit,
+					$args['offset']
+				),
+				ARRAY_A
+			);
+		} else {
+			$events = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+				$wpdb->prepare(
+					'SELECT e.*, c.name AS category_name, c.color AS category_color
+					FROM %i e
+					LEFT JOIN %i c ON c.slug = e.category_slug
+					WHERE ( %s = \'\' OR e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s )
+					AND ( %s = \'\' OR e.end_at >= %s )
+					AND ( %s = \'\' OR e.start_at <= %s )
+					ORDER BY %i ASC, e.slug ASC
+					LIMIT %d OFFSET %d',
+					self::events_table(),
+					self::categories_table(),
+					$args['search'],
+					$like,
+					$like,
+					$like,
+					$like,
+					$like,
+					$args['start_date'],
+					$start_boundary,
+					$args['end_date'],
+					$end_boundary,
+					$orderby,
+					$limit,
+					$args['offset']
+				),
+				ARRAY_A
+			);
 		}
-
-		if ( '' !== $args['start_date'] ) {
-			$where[]  = 'e.end_at >= %s';
-			$params[] = $args['start_date'] . ' 00:00:00';
-		}
-
-		if ( '' !== $args['end_date'] ) {
-			$where[]  = 'e.start_at <= %s';
-			$params[] = $args['end_date'] . ' 23:59:59';
-		}
-
-		$sql = 'SELECT e.*, c.name AS category_name, c.color AS category_color
-			FROM %i e
-			LEFT JOIN %i c ON c.slug = e.category_slug
-			WHERE ' . implode( ' AND ', $where ) . '
-			ORDER BY ' . $orderby . ' ' . $order . ', e.slug ASC';
-
-		$params = array_merge( array( self::events_table(), self::categories_table() ), $params );
-
-		if ( $args['number'] > 0 ) {
-			$sql     .= ' LIMIT %d OFFSET %d';
-			$params[] = $args['number'];
-			$params[] = $args['offset'];
-		}
-
-		$query  = $wpdb->prepare( $sql, $params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- WHERE and ORDER BY clauses are built from fixed clauses and whitelisted columns.
-		$events = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom table query prepared above and cached with the Moqbo cache group.
 
 		wp_cache_set( $cache_key, $events, self::CACHE_GROUP );
 

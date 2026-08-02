@@ -18,7 +18,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'MOQBO_VERSION', '1.0.0' );
-define( 'MOQBO_DB_VERSION', '1' );
 define( 'MOQBO_FILE', __FILE__ );
 define( 'MOQBO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MOQBO_URL', plugin_dir_url( __FILE__ ) );
@@ -37,7 +36,6 @@ final class Moqbo {
 	 * Register hooks.
 	 */
 	public static function init() {
-		add_action( 'plugins_loaded', array( 'Moqbo_DB', 'maybe_upgrade' ) );
 		add_action( 'init', array( 'Moqbo_Shortcode', 'register' ) );
 		add_action( 'wp_enqueue_scripts', array( 'Moqbo_Shortcode', 'maybe_enqueue_assets' ) );
 		Moqbo_API::init();
