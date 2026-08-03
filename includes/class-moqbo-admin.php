@@ -55,8 +55,8 @@ class Moqbo_Admin {
 	 * Handle writes and destructive actions before wp-admin sends output.
 	 */
 	public static function handle_admin_requests() {
-		$page           = self::request_string( $_GET, 'page', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin page routing.
-		$request_action = self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing; selected handlers verify POST nonces.
+		$page           = isset( $_GET['page'] ) && is_string( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only admin page routing.
+		$request_action = isset( $_GET['moqbo_action'] ) && is_string( $_GET['moqbo_action'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing; selected handlers verify POST nonces.
 
 		if ( 'moqbo' === $page ) {
 			self::handle_event_delete_request();
@@ -305,7 +305,7 @@ class Moqbo_Admin {
 					<tbody>
 						<tr>
 							<th scope="row"><label for="moqbo-event-name"><?php esc_html_e( 'Name', 'moqbo' ); ?></label></th>
-							<td><input name="name" type="text" id="moqbo-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" required></td>
+							<td><input name="name" type="text" id="moqbo-event-name" class="regular-text" value="<?php echo esc_attr( $values['name'] ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_TEXT_LENGTH ); ?>" required></td>
 						</tr>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'Slug Generation', 'moqbo' ); ?></th>
@@ -319,12 +319,12 @@ class Moqbo_Admin {
 						<tr <?php if ( $values['auto_generate_slug'] ) : ?>hidden<?php endif; ?>>
 							<th scope="row"><label for="moqbo-event-slug"><?php esc_html_e( 'Slug', 'moqbo' ); ?></label></th>
 							<td>
-								<input name="slug" type="text" id="moqbo-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
+								<input name="slug" type="text" id="moqbo-event-slug" class="regular-text" value="<?php echo esc_attr( $values['slug'] ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_SLUG_LENGTH ); ?>" <?php if ( ! $values['auto_generate_slug'] ) : ?>required<?php endif; ?>>
 							</td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="moqbo-location"><?php esc_html_e( 'Location', 'moqbo' ); ?></label></th>
-							<td><input name="location" type="text" id="moqbo-location" class="regular-text" value="<?php echo esc_attr( $values['location'] ); ?>"></td>
+							<td><input name="location" type="text" id="moqbo-location" class="regular-text" value="<?php echo esc_attr( $values['location'] ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_TEXT_LENGTH ); ?>"></td>
 						</tr>
 						<tr>
 							<th scope="row"><label for="moqbo-category"><?php esc_html_e( 'Event Category', 'moqbo' ); ?></label></th>
@@ -339,7 +339,7 @@ class Moqbo_Admin {
 						</tr>
 						<tr>
 							<th scope="row"><label for="moqbo-description"><?php esc_html_e( 'Description', 'moqbo' ); ?></label></th>
-							<td><textarea name="description" id="moqbo-description" class="large-text" rows="5"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
+							<td><textarea name="description" id="moqbo-description" class="large-text" rows="5" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_DESCRIPTION_BYTES ); ?>"><?php echo esc_textarea( $values['description'] ); ?></textarea></td>
 						</tr>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'All-day event', 'moqbo' ); ?></th>
@@ -417,18 +417,18 @@ class Moqbo_Admin {
 
 							<div class="form-field form-required">
 								<label for="moqbo-category-name"><?php esc_html_e( 'Name', 'moqbo' ); ?></label>
-								<input name="name" type="text" id="moqbo-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" required>
+								<input name="name" type="text" id="moqbo-category-name" value="<?php echo esc_attr( $values['name'] ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_TEXT_LENGTH ); ?>" required>
 							</div>
 
 							<div class="form-field">
 								<label for="moqbo-category-slug"><?php esc_html_e( 'Slug', 'moqbo' ); ?></label>
-								<input name="slug" type="text" id="moqbo-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>">
+								<input name="slug" type="text" id="moqbo-category-slug" value="<?php echo esc_attr( $values['slug'] ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_DB::MAX_SLUG_LENGTH ); ?>">
 								<p><?php esc_html_e( 'Leave blank to generate from the category name.', 'moqbo' ); ?></p>
 							</div>
 
 							<div class="form-field form-required">
 								<label for="moqbo-category-color"><?php esc_html_e( 'Color', 'moqbo' ); ?></label>
-								<input name="color" type="text" id="moqbo-category-color" class="moqbo-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" data-default-color="#2271b1" aria-required="true">
+								<input name="color" type="text" id="moqbo-category-color" class="moqbo-color-field" value="<?php echo esc_attr( $values['color'] ); ?>" maxlength="7" data-default-color="#2271b1" aria-required="true">
 							</div>
 
 							<?php submit_button( $editing ? __( 'Update Category', 'moqbo' ) : __( 'Add Category', 'moqbo' ), 'primary', 'submit', false ); ?>
@@ -526,8 +526,9 @@ class Moqbo_Admin {
 		?>
 		<label for="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_AUTH_REQUIRED ) ); ?>">
 			<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . Moqbo_Settings::API_AUTH_REQUIRED . ']' ); ?>" type="checkbox" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_AUTH_REQUIRED ) ); ?>" value="1" <?php checked( ! empty( $settings[ Moqbo_Settings::API_AUTH_REQUIRED ] ) ); ?>>
-			<?php esc_html_e( 'Require bearer token authentication for API endpoints', 'moqbo' ); ?>
+			<?php esc_html_e( 'Require token authentication for enabled GET endpoints', 'moqbo' ); ?>
 		</label>
+		<p class="description"><?php esc_html_e( 'POST endpoints always require a WordPress administrator or a valid configured token.', 'moqbo' ); ?></p>
 		<?php
 	}
 
@@ -538,14 +539,14 @@ class Moqbo_Admin {
 		$settings = Moqbo_Settings::get();
 		$token    = isset( $settings[ Moqbo_Settings::API_TOKEN ] ) ? $settings[ Moqbo_Settings::API_TOKEN ] : '';
 		?>
-		<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . Moqbo_Settings::API_TOKEN . ']' ); ?>" type="text" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_TOKEN ) ); ?>" class="regular-text" value="<?php echo esc_attr( $token ); ?>" autocomplete="off">
+		<input name="<?php echo esc_attr( Moqbo_Settings::OPTION_NAME . '[' . Moqbo_Settings::API_TOKEN . ']' ); ?>" type="text" id="moqbo-setting-<?php echo esc_attr( str_replace( '_', '-', Moqbo_Settings::API_TOKEN ) ); ?>" class="regular-text" value="<?php echo esc_attr( $token ); ?>" minlength="<?php echo esc_attr( (string) Moqbo_Settings::API_TOKEN_MIN_LENGTH ); ?>" maxlength="<?php echo esc_attr( (string) Moqbo_Settings::API_TOKEN_MAX_LENGTH ); ?>" pattern="[A-Za-z0-9._~+/=\-]{32,255}" autocomplete="off">
 		<p class="description">
 			<?php
 			echo wp_kses_post(
 				sprintf(
 					/* translators: %s: Authorization header example. */
-					__( 'Clients can send this value with the Authorization header (For example: <code>%s</code>)', 'moqbo' ),
-					esc_html( 'Bearer your-token' )
+					__( 'Use 32 to 255 letters, numbers, or allowed symbols and send the exact token over HTTPS with the Authorization header (for example: <code>%s</code>).', 'moqbo' ),
+					esc_html( 'Bearer 0123456789abcdef0123456789abcdef01234567' )
 				)
 			);
 			?>
@@ -625,25 +626,34 @@ class Moqbo_Admin {
 		$is_post = self::is_post_request();
 
 		if ( $is_post ) {
-			if ( 'bulk_events' !== self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+			$request_action = isset( $_GET['moqbo_action'] ) && is_string( $_GET['moqbo_action'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+
+			if ( 'bulk_events' !== $request_action ) {
 				return;
 			}
 
 			self::require_capability();
 			check_admin_referer( 'bulk-events' );
 
-			if ( 'delete' !== self::current_table_action( $_POST ) ) {
+			$action  = isset( $_POST['action'] ) && is_string( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '';
+			$action2 = isset( $_POST['action2'] ) && is_string( $_POST['action2'] ) ? sanitize_key( wp_unslash( $_POST['action2'] ) ) : '';
+
+			if ( 'delete' !== self::current_table_action( $action, $action2 ) ) {
 				return;
 			}
 
-			$slugs = self::sanitize_slug_list( $_POST, 'event' );
+			$submitted_slugs = isset( $_POST['event'] ) && is_array( $_POST['event'] ) ? map_deep( wp_unslash( $_POST['event'] ), 'sanitize_title' ) : array();
+			$slugs           = self::sanitize_slug_list( $submitted_slugs );
 		} else {
-			if ( 'delete' !== self::current_table_action( $_GET ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+			$action  = isset( $_GET['action'] ) && is_string( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+			$action2 = isset( $_GET['action2'] ) && is_string( $_GET['action2'] ) ? sanitize_key( wp_unslash( $_GET['action2'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+
+			if ( 'delete' !== self::current_table_action( $action, $action2 ) ) {
 				return;
 			}
 
 			self::require_capability();
-			$slug = self::request_string( $_GET, 'event', 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
+			$slug = isset( $_GET['event'] ) && is_string( $_GET['event'] ) ? sanitize_title( wp_unslash( $_GET['event'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
 
 			if ( '' === $slug ) {
 				self::redirect_to( 'moqbo', array( 'moqbo_notice' => 'no_selection' ) );
@@ -675,25 +685,34 @@ class Moqbo_Admin {
 		$is_post = self::is_post_request();
 
 		if ( $is_post ) {
-			if ( 'bulk_categories' !== self::request_string( $_GET, 'moqbo_action', 'sanitize_key' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+			$request_action = isset( $_GET['moqbo_action'] ) && is_string( $_GET['moqbo_action'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only form routing.
+
+			if ( 'bulk_categories' !== $request_action ) {
 				return;
 			}
 
 			self::require_capability();
 			check_admin_referer( 'bulk-categories' );
 
-			if ( 'delete' !== self::current_table_action( $_POST ) ) {
+			$action  = isset( $_POST['action'] ) && is_string( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '';
+			$action2 = isset( $_POST['action2'] ) && is_string( $_POST['action2'] ) ? sanitize_key( wp_unslash( $_POST['action2'] ) ) : '';
+
+			if ( 'delete' !== self::current_table_action( $action, $action2 ) ) {
 				return;
 			}
 
-			$slugs = self::sanitize_slug_list( $_POST, 'category' );
+			$submitted_slugs = isset( $_POST['category'] ) && is_array( $_POST['category'] ) ? map_deep( wp_unslash( $_POST['category'] ), 'sanitize_title' ) : array();
+			$slugs           = self::sanitize_slug_list( $submitted_slugs );
 		} else {
-			if ( 'delete' !== self::current_table_action( $_GET ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+			$action  = isset( $_GET['action'] ) && is_string( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+			$action2 = isset( $_GET['action2'] ) && is_string( $_GET['action2'] ) ? sanitize_key( wp_unslash( $_GET['action2'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only action routing; the row nonce is checked below.
+
+			if ( 'delete' !== self::current_table_action( $action, $action2 ) ) {
 				return;
 			}
 
 			self::require_capability();
-			$slug = self::request_string( $_GET, 'category', 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
+			$slug = isset( $_GET['category'] ) && is_string( $_GET['category'] ) ? sanitize_title( wp_unslash( $_GET['category'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Required to select the slug-specific nonce action checked below.
 
 			if ( '' === $slug ) {
 				self::redirect_to( 'moqbo-categories', array( 'moqbo_notice' => 'no_selection' ) );
@@ -728,7 +747,7 @@ class Moqbo_Admin {
 		self::require_capability();
 		check_admin_referer( 'moqbo_save_event', 'moqbo_event_nonce' );
 
-		$submission             = self::sanitize_event_submission( $_POST );
+		$submission             = self::sanitize_event_submission();
 		self::$event_submission = $submission;
 		$original_slug          = $submission['moqbo_original_slug'];
 		$editing       = '' !== $original_slug;
@@ -771,7 +790,7 @@ class Moqbo_Admin {
 		self::require_capability();
 		check_admin_referer( 'moqbo_save_category', 'moqbo_category_nonce' );
 
-		$submission                = self::sanitize_category_submission( $_POST );
+		$submission                = self::sanitize_category_submission();
 		self::$category_submission = $submission;
 		$original_slug             = $submission['moqbo_original_slug'];
 		$editing       = '' !== $original_slug;
@@ -808,38 +827,60 @@ class Moqbo_Admin {
 	/**
 	 * Normalize expected event form fields after nonce verification.
 	 *
-	 * @param array $raw Raw POST data.
 	 * @return array
 	 */
-	private static function sanitize_event_submission( array $raw ) {
+	private static function sanitize_event_submission() {
+		// The caller verifies the event form nonce before this normalization boundary.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing
+		$original_slug     = isset( $_POST['moqbo_original_slug'] ) && is_string( $_POST['moqbo_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['moqbo_original_slug'] ) ) : '';
+		$name              = isset( $_POST['name'] ) && is_string( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$slug              = isset( $_POST['slug'] ) && is_string( $_POST['slug'] ) ? sanitize_title( wp_unslash( $_POST['slug'] ) ) : '';
+		$location          = isset( $_POST['location'] ) && is_string( $_POST['location'] ) ? sanitize_text_field( wp_unslash( $_POST['location'] ) ) : '';
+		$auto_generate     = isset( $_POST['auto_generate_slug'] ) && is_string( $_POST['auto_generate_slug'] ) ? sanitize_text_field( wp_unslash( $_POST['auto_generate_slug'] ) ) : '';
+		$category_slug     = isset( $_POST['category_slug'] ) && is_string( $_POST['category_slug'] ) ? sanitize_title( wp_unslash( $_POST['category_slug'] ) ) : '';
+		$description       = isset( $_POST['description'] ) && is_string( $_POST['description'] ) ? sanitize_textarea_field( wp_unslash( $_POST['description'] ) ) : '';
+		$all_day           = isset( $_POST['all_day'] ) && is_string( $_POST['all_day'] ) ? sanitize_text_field( wp_unslash( $_POST['all_day'] ) ) : '';
+		$start_date        = isset( $_POST['start_date'] ) && is_string( $_POST['start_date'] ) ? sanitize_text_field( wp_unslash( $_POST['start_date'] ) ) : '';
+		$start_time        = isset( $_POST['start_time'] ) && is_string( $_POST['start_time'] ) ? sanitize_text_field( wp_unslash( $_POST['start_time'] ) ) : '';
+		$end_date          = isset( $_POST['end_date'] ) && is_string( $_POST['end_date'] ) ? sanitize_text_field( wp_unslash( $_POST['end_date'] ) ) : '';
+		$end_time          = isset( $_POST['end_time'] ) && is_string( $_POST['end_time'] ) ? sanitize_text_field( wp_unslash( $_POST['end_time'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
 		return array(
-			'moqbo_original_slug' => self::request_string( $raw, 'moqbo_original_slug', 'sanitize_title' ),
-			'name'                => self::request_string( $raw, 'name' ),
-			'slug'                => self::request_string( $raw, 'slug', 'sanitize_title' ),
-			'location'            => self::request_string( $raw, 'location' ),
-			'auto_generate_slug'  => '1' === self::request_string( $raw, 'auto_generate_slug' ),
-			'category_slug'       => self::request_string( $raw, 'category_slug', 'sanitize_title' ),
-			'description'         => self::request_string( $raw, 'description', 'sanitize_textarea_field' ),
-			'all_day'             => '1' === self::request_string( $raw, 'all_day' ),
-			'start_date'          => self::request_string( $raw, 'start_date' ),
-			'start_time'          => self::request_string( $raw, 'start_time' ),
-			'end_date'            => self::request_string( $raw, 'end_date' ),
-			'end_time'            => self::request_string( $raw, 'end_time' ),
+			'moqbo_original_slug' => $original_slug,
+			'name'                => $name,
+			'slug'                => $slug,
+			'location'            => $location,
+			'auto_generate_slug'  => '1' === $auto_generate,
+			'category_slug'       => $category_slug,
+			'description'         => $description,
+			'all_day'             => '1' === $all_day,
+			'start_date'          => $start_date,
+			'start_time'          => $start_time,
+			'end_date'            => $end_date,
+			'end_time'            => $end_time,
 		);
 	}
 
 	/**
 	 * Normalize expected category form fields after nonce verification.
 	 *
-	 * @param array $raw Raw POST data.
 	 * @return array
 	 */
-	private static function sanitize_category_submission( array $raw ) {
+	private static function sanitize_category_submission() {
+		// The caller verifies the category form nonce before this normalization boundary.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing
+		$original_slug = isset( $_POST['moqbo_original_slug'] ) && is_string( $_POST['moqbo_original_slug'] ) ? sanitize_title( wp_unslash( $_POST['moqbo_original_slug'] ) ) : '';
+		$name          = isset( $_POST['name'] ) && is_string( $_POST['name'] ) ? sanitize_text_field( wp_unslash( $_POST['name'] ) ) : '';
+		$slug          = isset( $_POST['slug'] ) && is_string( $_POST['slug'] ) ? sanitize_title( wp_unslash( $_POST['slug'] ) ) : '';
+		$color         = isset( $_POST['color'] ) && is_string( $_POST['color'] ) ? sanitize_hex_color( wp_unslash( $_POST['color'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
 		return array(
-			'moqbo_original_slug' => self::request_string( $raw, 'moqbo_original_slug', 'sanitize_title' ),
-			'name'                => self::request_string( $raw, 'name' ),
-			'slug'                => self::request_string( $raw, 'slug', 'sanitize_title' ),
-			'color'               => self::request_string( $raw, 'color', 'sanitize_hex_color' ),
+			'moqbo_original_slug' => $original_slug,
+			'name'                => $name,
+			'slug'                => $slug,
+			'color'               => $color ? $color : '',
 		);
 	}
 
@@ -863,12 +904,28 @@ class Moqbo_Admin {
 			$errors->add( 'missing_name', __( 'Event name is required.', 'moqbo' ) );
 		}
 
+		if ( self::exceeds_character_limit( $name, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			$errors->add( 'name_too_long', __( 'Event name is too long.', 'moqbo' ) );
+		}
+
 		if ( '' === $slug ) {
 			if ( $auto_generate_slug ) {
 				$errors->add( 'missing_slug', __( 'Event slug could not be generated. Check the event name and start date, or enter a slug manually.', 'moqbo' ) );
 			} else {
 				$errors->add( 'missing_slug', __( 'Event slug is required when auto-generation is disabled.', 'moqbo' ) );
 			}
+		}
+
+		if ( self::exceeds_character_limit( $slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			$errors->add( 'slug_too_long', __( 'Event slug is too long.', 'moqbo' ) );
+		}
+
+		if ( self::exceeds_character_limit( $location, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			$errors->add( 'location_too_long', __( 'Event location is too long.', 'moqbo' ) );
+		}
+
+		if ( strlen( $raw['description'] ) > Moqbo_DB::MAX_DESCRIPTION_BYTES ) {
+			$errors->add( 'description_too_long', __( 'Event description is too long.', 'moqbo' ) );
 		}
 
 		$duplicate = '' !== $slug ? Moqbo_DB::get_event( $slug ) : null;
@@ -878,6 +935,10 @@ class Moqbo_Admin {
 		}
 
 		$category_slug = $raw['category_slug'];
+
+		if ( self::exceeds_character_limit( $category_slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			$errors->add( 'category_slug_too_long', __( 'Event category slug is too long.', 'moqbo' ) );
+		}
 
 		if ( '' === $category_slug || ! Moqbo_DB::get_category( $category_slug ) ) {
 			$errors->add( 'missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
@@ -943,12 +1004,20 @@ class Moqbo_Admin {
 			$errors->add( 'missing_name', __( 'Category name is required.', 'moqbo' ) );
 		}
 
+		if ( self::exceeds_character_limit( $name, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			$errors->add( 'name_too_long', __( 'Category name is too long.', 'moqbo' ) );
+		}
+
 		if ( '' === $slug ) {
 			$slug = sanitize_title( $name );
 		}
 
 		if ( '' === $slug ) {
 			$errors->add( 'missing_slug', __( 'Category slug could not be generated. Enter a slug manually.', 'moqbo' ) );
+		}
+
+		if ( self::exceeds_character_limit( $slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			$errors->add( 'slug_too_long', __( 'Category slug is too long.', 'moqbo' ) );
 		}
 
 		$duplicate = '' !== $slug ? Moqbo_DB::get_category( $slug ) : null;
@@ -1156,55 +1225,20 @@ class Moqbo_Admin {
 	}
 
 	/**
-	 * Sanitize scalar request data with a context-specific callback.
-	 *
-	 * @param array    $request Request data.
-	 * @param string   $key Request key.
-	 * @param callable $sanitize_callback Sanitization callback.
-	 * @return string
-	 */
-	private static function request_string( array $request, $key, $sanitize_callback = 'sanitize_text_field' ) {
-		if ( ! isset( $request[ $key ] ) || ! is_string( $request[ $key ] ) ) {
-			return '';
-		}
-
-		$value = call_user_func( $sanitize_callback, wp_unslash( $request[ $key ] ) );
-
-		return is_scalar( $value ) ? (string) $value : '';
-	}
-
-	/**
-	 * Sanitize an integer request value.
-	 *
-	 * @param array  $request Request data.
-	 * @param string $key Request key.
-	 * @return int
-	 */
-	private static function request_integer( array $request, $key ) {
-		if ( ! isset( $request[ $key ] ) || ! is_string( $request[ $key ] ) ) {
-			return 0;
-		}
-
-		return absint( wp_unslash( $request[ $key ] ) );
-	}
-
-	/**
 	 * Sanitize one or more submitted slugs.
 	 *
-	 * @param array  $request Request data.
-	 * @param string $key Request key.
+	 * @param array $values Submitted values.
 	 * @return array
 	 */
-	private static function sanitize_slug_list( array $request, $key ) {
-		$values = isset( $request[ $key ] ) && is_array( $request[ $key ] ) ? $request[ $key ] : array();
-		$slugs  = array();
+	private static function sanitize_slug_list( array $values ) {
+		$slugs = array();
 
 		foreach ( $values as $item ) {
 			if ( ! is_string( $item ) ) {
 				continue;
 			}
 
-			$slug = sanitize_title( wp_unslash( $item ) );
+			$slug = sanitize_title( $item );
 
 			if ( '' !== $slug ) {
 				$slugs[] = $slug;
@@ -1215,16 +1249,15 @@ class Moqbo_Admin {
 	}
 
 	/**
-	 * Return current list table action from request data.
+	 * Return the current allowlisted list-table action.
 	 *
-	 * @param array $request GET or POST request data.
+	 * @param string $action Primary action.
+	 * @param string $action2 Secondary action.
 	 * @return string
 	 */
-	private static function current_table_action( array $request ) {
-		$action = self::request_string( $request, 'action', 'sanitize_key' );
-
+	private static function current_table_action( $action, $action2 ) {
 		if ( '-1' === $action || '' === $action ) {
-			$action = self::request_string( $request, 'action2', 'sanitize_key' );
+			$action = $action2;
 		}
 
 		return 'delete' === $action ? $action : '';
@@ -1237,9 +1270,10 @@ class Moqbo_Admin {
 	 * @return bool
 	 */
 	private static function is_edit_request( $key ) {
-		$action = self::request_string( $_GET, 'action', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
+		$action = isset( $_GET['action'] ) && is_string( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
+		$slug   = isset( $_GET[ $key ] ) && is_string( $_GET[ $key ] ) ? sanitize_title( wp_unslash( $_GET[ $key ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
 
-		return 'edit' === $action && '' !== self::request_string( $_GET, $key, 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen routing.
+		return 'edit' === $action && '' !== $slug;
 	}
 
 	/**
@@ -1249,7 +1283,7 @@ class Moqbo_Admin {
 	 * @return string
 	 */
 	private static function get_request_slug( $key ) {
-		return self::request_string( $_GET, $key, 'sanitize_title' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen selection.
+		return isset( $_GET[ $key ] ) && is_string( $_GET[ $key ] ) ? sanitize_title( wp_unslash( $_GET[ $key ] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only edit-screen selection.
 	}
 
 	/**
@@ -1258,7 +1292,7 @@ class Moqbo_Admin {
 	 * @return bool
 	 */
 	private static function is_post_request() {
-		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
 
 		return 'post' === $method;
 	}
@@ -1284,16 +1318,26 @@ class Moqbo_Admin {
 			'page'         => $page,
 			'moqbo_action' => $action,
 		);
+		$search           = isset( $_GET['s'] ) && is_string( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list state.
+		$orderby          = isset( $_GET['orderby'] ) && is_string( $_GET['orderby'] ) ? sanitize_key( wp_unslash( $_GET['orderby'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list state.
+		$order            = isset( $_GET['order'] ) && is_string( $_GET['order'] ) ? strtoupper( sanitize_key( wp_unslash( $_GET['order'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list state.
+		$event_orderby    = array( 'name', 'slug', 'location', 'category', 'all_day', 'start_date', 'start_time', 'end_date', 'end_time', 'created_at', 'updated_at' );
+		$category_orderby = array( 'name', 'slug', 'count' );
+		$allowed_orderby  = 'moqbo-categories' === $page ? $category_orderby : $event_orderby;
 
-		foreach ( array( 's', 'orderby', 'order' ) as $key ) {
-			$value = self::request_string( $_GET, $key ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list state.
-
-			if ( '' !== $value ) {
-				$args[ $key ] = $value;
-			}
+		if ( '' !== $search ) {
+			$args['s'] = $search;
 		}
 
-		$paged = self::request_integer( $_GET, 'paged' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination state.
+		if ( in_array( $orderby, $allowed_orderby, true ) ) {
+			$args['orderby'] = $orderby;
+		}
+
+		if ( in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+			$args['order'] = $order;
+		}
+
+		$paged = isset( $_GET['paged'] ) && is_string( $_GET['paged'] ) ? absint( wp_unslash( $_GET['paged'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only pagination state.
 
 		if ( $paged > 1 ) {
 			$args['paged'] = $paged;
@@ -1319,7 +1363,7 @@ class Moqbo_Admin {
 	 * Print redirect notices.
 	 */
 	private static function print_notices() {
-		$notice = self::request_string( $_GET, 'moqbo_notice', 'sanitize_key' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice selection.
+		$notice = isset( $_GET['moqbo_notice'] ) && is_string( $_GET['moqbo_notice'] ) ? sanitize_key( wp_unslash( $_GET['moqbo_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice selection.
 
 		if ( '' === $notice ) {
 			return;
@@ -1336,7 +1380,7 @@ class Moqbo_Admin {
 				$message = __( 'Category saved.', 'moqbo' );
 				break;
 			case 'events_deleted':
-				$deleted = self::request_integer( $_GET, 'deleted' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
+				$deleted = isset( $_GET['deleted'] ) && is_string( $_GET['deleted'] ) ? absint( wp_unslash( $_GET['deleted'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
 				$message = sprintf(
 					/* translators: %d: deleted event count. */
 					_n( '%d event deleted.', '%d events deleted.', $deleted, 'moqbo' ),
@@ -1344,8 +1388,8 @@ class Moqbo_Admin {
 				);
 				break;
 			case 'categories_deleted':
-				$deleted = self::request_integer( $_GET, 'deleted' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
-				$blocked = self::request_integer( $_GET, 'blocked' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
+				$deleted = isset( $_GET['deleted'] ) && is_string( $_GET['deleted'] ) ? absint( wp_unslash( $_GET['deleted'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
+				$blocked = isset( $_GET['blocked'] ) && is_string( $_GET['blocked'] ) ? absint( wp_unslash( $_GET['blocked'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice count.
 				$type    = $blocked > 0 ? 'warning' : 'success';
 				$message = sprintf(
 					/* translators: 1: deleted category count, 2: blocked category count. */
@@ -1374,6 +1418,19 @@ class Moqbo_Admin {
 		foreach ( $errors as $message ) {
 			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $message ) );
 		}
+	}
+
+	/**
+	 * Check a UTF-8 string against a character limit.
+	 *
+	 * @param string $value String value.
+	 * @param int    $maximum Maximum characters.
+	 * @return bool
+	 */
+	private static function exceeds_character_limit( $value, $maximum ) {
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
+
+		return $length > $maximum;
 	}
 
 	/**

@@ -52,9 +52,9 @@ If no upcoming event matches, Moqbo returns `n/a`.
 
 = Configure features =
 
-Go to Moqbo > Settings to enable or disable the calendar shortcode, date shortcode, REST API, individual REST endpoint methods, and API token authentication.
+Go to Moqbo > Settings to enable or disable the calendar shortcode, date shortcode, REST API, individual REST endpoint methods, and token authentication for GET requests.
 
-By default, the calendar shortcode, date shortcode, API, and GET endpoints are enabled. Token authentication and POST endpoints are disabled by default.
+By default, the calendar shortcode, date shortcode, API, and GET endpoints are enabled. Token authentication for GET requests and both POST endpoints are disabled by default. POST requests always require an administrator account or a valid configured API token.
 
 == REST API ==
 
@@ -69,15 +69,19 @@ Available endpoints:
 
 Each endpoint method can be enabled or disabled from Moqbo > Settings.
 
+Collection requests are limited to a calculated result offset of 100,000. Requests where `(page - 1) * per_page` exceeds that limit return an error.
+
 = Authentication =
 
-When token authentication is disabled, enabled endpoints are public. When token authentication is enabled, clients must send the configured token in the `Authorization` header.
+Enabled GET endpoints are public when token authentication is disabled. When token authentication is enabled, GET clients must send the configured token in the `Authorization` header.
+
+POST endpoints are never public. A POST request must be authenticated as a WordPress administrator or send a valid configured API token, regardless of the GET authentication setting. API tokens must contain between 32 and 255 letters, numbers, dots, underscores, tildes, plus signs, slashes, equals signs, or hyphens and should only be sent over HTTPS.
 
 Accepted authorization formats:
 
-`Authorization: Bearer your-token`
+`Authorization: Bearer 0123456789abcdef0123456789abcdef01234567`
 
-`Authorization: Token your-token`
+`Authorization: Token 0123456789abcdef0123456789abcdef01234567`
 
 = Events =
 
@@ -88,6 +92,8 @@ Required query parameters:
 * `start_date` in `YYYY-MM-DD` format
 * `end_date` in `YYYY-MM-DD` format
 
+The date range may span at most 366 days. Results are paginated with up to 100 events per request. Use the optional `page` and `per_page` query parameters to request additional pages.
+
 Example:
 
 `/wp-json/moqbo/v1/events?start_date=2026-01-01&end_date=2026-01-31`
@@ -96,7 +102,7 @@ Event responses include `name`, `slug`, `location`, `category_slug`, `descriptio
 
 `POST /wp-json/moqbo/v1/events` creates an event.
 
-Required fields are `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, and `end_at`. The `category_slug` must reference an existing category. Event slugs must be unique.
+Required fields are `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, and `end_at`. Values must be non-empty, the `category_slug` must reference an existing category, and event slugs must be unique.
 
 Example request body:
 
@@ -115,6 +121,8 @@ Example request body:
 `GET /wp-json/moqbo/v1/categories` returns categories sorted by name.
 
 Category responses include `name`, `slug`, `color`, and `event_count`.
+
+Results are paginated with up to 100 categories per request. Use the optional `page` and `per_page` query parameters to request additional pages.
 
 `POST /wp-json/moqbo/v1/categories` creates a category.
 
@@ -136,11 +144,11 @@ No. Moqbo enqueues the frontend calendar assets only when the `[moqbo]` shortcod
 
 = Are API endpoints public? =
 
-Enabled API endpoints are public when token authentication is disabled. Enable token authentication if API access should be limited.
+Enabled GET endpoints are public when token authentication is disabled. POST endpoints always require a WordPress administrator or valid configured API token.
 
 = Can external tools create events? =
 
-Yes. Enable the API, enable the `POST /wp-json/moqbo/v1/events` endpoint, and optionally require token authentication. The event must reference an existing category.
+Yes. Enable the API and the `POST /wp-json/moqbo/v1/events` endpoint, configure an API token of at least 32 characters, and send it in the `Authorization` header. The event must reference an existing category.
 
 = Can I disable write access but keep read access? =
 

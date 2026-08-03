@@ -19,6 +19,21 @@ class Moqbo_API {
 	const REST_NAMESPACE = 'moqbo/v1';
 
 	/**
+	 * Maximum event query span in days.
+	 */
+	const MAX_EVENT_QUERY_DAYS = 366;
+
+	/**
+	 * Maximum collection items returned per request.
+	 */
+	const MAX_ITEMS_PER_PAGE = 100;
+
+	/**
+	 * Maximum collection result offset.
+	 */
+	const MAX_RESULT_OFFSET = 100000;
+
+	/**
 	 * Register API hooks.
 	 */
 	public static function init() {
@@ -75,12 +90,13 @@ class Moqbo_API {
 	 * @return true|WP_Error
 	 */
 	public static function get_events_permissions_check( $request ) {
-		return self::endpoint_permissions_check(
-			$request,
+		$permission = self::endpoint_availability_check(
 			Moqbo_Settings::API_GET_EVENTS_ENABLED,
 			'moqbo_api_get_events_disabled',
 			__( 'The Moqbo events GET endpoint is disabled.', 'moqbo' )
 		);
+
+		return is_wp_error( $permission ) ? $permission : self::authentication_check( $request );
 	}
 
 	/**
@@ -90,12 +106,17 @@ class Moqbo_API {
 	 * @return true|WP_Error
 	 */
 	public static function create_event_permissions_check( $request ) {
-		return self::endpoint_permissions_check(
-			$request,
+		$permission = self::endpoint_availability_check(
 			Moqbo_Settings::API_POST_EVENTS_ENABLED,
 			'moqbo_api_post_events_disabled',
 			__( 'The Moqbo events POST endpoint is disabled.', 'moqbo' )
 		);
+
+		if ( is_wp_error( $permission ) || current_user_can( 'manage_options' ) ) {
+			return $permission;
+		}
+
+		return self::token_authentication_check( $request );
 	}
 
 	/**
@@ -105,12 +126,13 @@ class Moqbo_API {
 	 * @return true|WP_Error
 	 */
 	public static function get_categories_permissions_check( $request ) {
-		return self::endpoint_permissions_check(
-			$request,
+		$permission = self::endpoint_availability_check(
 			Moqbo_Settings::API_GET_CATEGORIES_ENABLED,
 			'moqbo_api_get_categories_disabled',
 			__( 'The Moqbo categories GET endpoint is disabled.', 'moqbo' )
 		);
+
+		return is_wp_error( $permission ) ? $permission : self::authentication_check( $request );
 	}
 
 	/**
@@ -120,12 +142,17 @@ class Moqbo_API {
 	 * @return true|WP_Error
 	 */
 	public static function create_category_permissions_check( $request ) {
-		return self::endpoint_permissions_check(
-			$request,
+		$permission = self::endpoint_availability_check(
 			Moqbo_Settings::API_POST_CATEGORIES_ENABLED,
 			'moqbo_api_post_categories_disabled',
 			__( 'The Moqbo categories POST endpoint is disabled.', 'moqbo' )
 		);
+
+		if ( is_wp_error( $permission ) || current_user_can( 'manage_options' ) ) {
+			return $permission;
+		}
+
+		return self::token_authentication_check( $request );
 	}
 
 	/**
@@ -140,6 +167,13 @@ class Moqbo_API {
 		$end_date   = self::sanitize_date_arg( isset( $query['end_date'] ) ? $query['end_date'] : '' );
 		$start      = self::parse_date( $start_date );
 		$end        = self::parse_date( $end_date );
+		$page       = (int) $request->get_param( 'page' );
+		$per_page   = (int) $request->get_param( 'per_page' );
+		$offset     = self::get_pagination_offset( $page, $per_page );
+
+		if ( is_wp_error( $offset ) ) {
+			return $offset;
+		}
 
 		if ( '' === $start_date || '' === $end_date ) {
 			return new WP_Error(
@@ -168,12 +202,26 @@ class Moqbo_API {
 			);
 		}
 
+		if ( $start->diff( $end )->days > self::MAX_EVENT_QUERY_DAYS ) {
+			return new WP_Error(
+				'moqbo_date_range_too_large',
+				sprintf(
+					/* translators: %d: maximum date-range length in days. */
+					__( 'The requested date range cannot exceed %d days.', 'moqbo' ),
+					self::MAX_EVENT_QUERY_DAYS
+				),
+				array( 'status' => 400 )
+			);
+		}
+
 		$events = Moqbo_DB::get_events(
 			array(
 				'start_date' => $start_date,
 				'end_date'   => $end_date,
 				'orderby'    => 'start',
 				'order'      => 'ASC',
+				'number'     => $per_page,
+				'offset'     => $offset,
 			)
 		);
 
@@ -216,13 +264,23 @@ class Moqbo_API {
 	 * Return event categories.
 	 *
 	 * @param WP_REST_Request $request REST request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function get_categories( $request ) {
+		$page     = (int) $request->get_param( 'page' );
+		$per_page = (int) $request->get_param( 'per_page' );
+		$offset   = self::get_pagination_offset( $page, $per_page );
+
+		if ( is_wp_error( $offset ) ) {
+			return $offset;
+		}
+
 		$categories = Moqbo_DB::get_categories(
 			array(
 				'orderby' => 'name',
 				'order'   => 'ASC',
+				'number'  => $per_page,
+				'offset'  => $offset,
 			)
 		);
 
@@ -304,6 +362,36 @@ class Moqbo_API {
 	}
 
 	/**
+	 * Sanitize a REST slug argument.
+	 *
+	 * @param mixed $value Slug value.
+	 * @return string
+	 */
+	public static function sanitize_slug_arg( $value ) {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		return sanitize_title( (string) $value );
+	}
+
+	/**
+	 * Sanitize a REST color argument.
+	 *
+	 * @param mixed $value Color value.
+	 * @return string
+	 */
+	public static function sanitize_color_arg( $value ) {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$color = sanitize_hex_color( (string) $value );
+
+		return $color ? $color : '';
+	}
+
+	/**
 	 * Check whether the Moqbo API feature is enabled.
 	 *
 	 * @return true|WP_Error
@@ -321,15 +409,14 @@ class Moqbo_API {
 	}
 
 	/**
-	 * Check whether an endpoint is enabled and authenticated.
+	 * Check whether an endpoint is enabled.
 	 *
-	 * @param WP_REST_Request $request REST request.
 	 * @param string          $endpoint_setting Endpoint setting key.
 	 * @param string          $disabled_code Disabled endpoint error code.
 	 * @param string          $disabled_message Disabled endpoint error message.
 	 * @return true|WP_Error
 	 */
-	private static function endpoint_permissions_check( $request, $endpoint_setting, $disabled_code, $disabled_message ) {
+	private static function endpoint_availability_check( $endpoint_setting, $disabled_code, $disabled_message ) {
 		$permission = self::base_permissions_check();
 
 		if ( is_wp_error( $permission ) ) {
@@ -344,7 +431,7 @@ class Moqbo_API {
 			);
 		}
 
-		return self::authentication_check( $request );
+		return true;
 	}
 
 	/**
@@ -358,12 +445,23 @@ class Moqbo_API {
 			return true;
 		}
 
+		return self::token_authentication_check( $request );
+	}
+
+	/**
+	 * Require a valid configured bearer token.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return true|WP_Error
+	 */
+	private static function token_authentication_check( $request ) {
+
 		$expected_token = Moqbo_Settings::get_api_token();
 
 		if ( '' === $expected_token ) {
 			return new WP_Error(
 				'moqbo_api_token_not_configured',
-				__( 'Moqbo API authentication is enabled, but no token is configured.', 'moqbo' ),
+				__( 'A Moqbo API token is required, but no token is configured.', 'moqbo' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -390,20 +488,13 @@ class Moqbo_API {
 	 * @return string
 	 */
 	private static function get_authorization_token( $request ) {
-		$header = sanitize_text_field( (string) $request->get_header( 'authorization' ) );
+		$header = $request->get_header( 'authorization' );
+		$header = is_string( $header ) ? $header : '';
 
-		if ( '' === $header && isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
-			$header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ) );
-		}
+		$header = trim( $header );
 
-		if ( '' === $header && isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
-			$header = sanitize_text_field( wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
-		}
-
-		$header = trim( (string) $header );
-
-		if ( preg_match( '/^(?:Bearer|Token)\s+(.+)$/i', $header, $matches ) ) {
-			return trim( $matches[1] );
+		if ( preg_match( '/^(?:Bearer|Token)[\t ]+([A-Za-z0-9._~+\/=\-]{32,255})$/iD', $header, $matches ) && Moqbo_Settings::is_valid_api_token( $matches[1] ) ) {
+			return $matches[1];
 		}
 
 		return '';
@@ -415,18 +506,81 @@ class Moqbo_API {
 	 * @return array
 	 */
 	private static function get_events_args() {
-		return array(
-			'start_date' => array(
-				'description'       => __( 'Start date (YYYY-MM-DD)', 'moqbo' ),
-				'type'              => 'string',
-				'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
+		return array_merge(
+			array(
+				'start_date' => array(
+					'description'       => __( 'Start date (YYYY-MM-DD)', 'moqbo' ),
+					'type'              => 'string',
+					'required'          => true,
+					'maxLength'         => 10,
+					'validate_callback' => 'rest_validate_request_arg',
+					'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
+				),
+				'end_date'   => array(
+					'description'       => __( 'End date (YYYY-MM-DD)', 'moqbo' ),
+					'type'              => 'string',
+					'required'          => true,
+					'maxLength'         => 10,
+					'validate_callback' => 'rest_validate_request_arg',
+					'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
+				),
 			),
-			'end_date'   => array(
-				'description'       => __( 'End date (YYYY-MM-DD)', 'moqbo' ),
-				'type'              => 'string',
-				'sanitize_callback' => array( __CLASS__, 'sanitize_date_arg' ),
+			self::get_pagination_args()
+		);
+	}
+
+	/**
+	 * Get bounded REST collection pagination args.
+	 *
+	 * @return array
+	 */
+	private static function get_pagination_args() {
+		return array(
+			'page'     => array(
+				'description'       => __( 'Current result page', 'moqbo' ),
+				'type'              => 'integer',
+				'default'           => 1,
+				'minimum'           => 1,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'absint',
+			),
+			'per_page' => array(
+				'description'       => __( 'Maximum items returned per page', 'moqbo' ),
+				'type'              => 'integer',
+				'default'           => self::MAX_ITEMS_PER_PAGE,
+				'minimum'           => 1,
+				'maximum'           => self::MAX_ITEMS_PER_PAGE,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'absint',
 			),
 		);
+	}
+
+	/**
+	 * Calculate and bound a collection offset.
+	 *
+	 * @param int $page Current page.
+	 * @param int $per_page Items per page.
+	 * @return int|WP_Error
+	 */
+	private static function get_pagination_offset( $page, $per_page ) {
+		if ( $page < 1 || $per_page < 1 || $per_page > self::MAX_ITEMS_PER_PAGE ) {
+			return new WP_Error(
+				'moqbo_invalid_pagination',
+				__( 'Page and per_page values are not valid.', 'moqbo' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( ( $page - 1 ) > intdiv( self::MAX_RESULT_OFFSET, $per_page ) ) {
+			return new WP_Error(
+				'moqbo_page_too_large',
+				__( 'The requested result page is too large.', 'moqbo' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return ( $page - 1 ) * $per_page;
 	}
 
 	/**
@@ -440,42 +594,56 @@ class Moqbo_API {
 				'description'       => __( 'Event name', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => Moqbo_DB::MAX_TEXT_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'slug'               => array(
 				'description'       => __( 'Event slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
-				'sanitize_callback' => 'sanitize_title',
+				'maxLength'         => Moqbo_DB::MAX_SLUG_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_slug_arg' ),
 			),
 			'location'           => array(
 				'description'       => __( 'Event location', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => Moqbo_DB::MAX_TEXT_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'category_slug'      => array(
 				'description'       => __( 'Existing event category slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
-				'sanitize_callback' => 'sanitize_title',
+				'maxLength'         => Moqbo_DB::MAX_SLUG_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_slug_arg' ),
 			),
 			'description'        => array(
 				'description'       => __( 'Event description', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => Moqbo_DB::MAX_DESCRIPTION_BYTES,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_textarea_arg' ),
 			),
 			'start_at'           => array(
 				'description'       => __( 'Start date (YYYY-MM-DD HH:MM:SS)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => 19,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'end_at'             => array(
 				'description'       => __( 'End date (YYYY-MM-DD HH:MM:SS)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => 19,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 		);
@@ -487,7 +655,7 @@ class Moqbo_API {
 	 * @return array
 	 */
 	private static function get_categories_args() {
-		return array();
+		return self::get_pagination_args();
 	}
 
 	/**
@@ -501,19 +669,26 @@ class Moqbo_API {
 				'description'       => __( 'Category name', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
+				'maxLength'         => Moqbo_DB::MAX_TEXT_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_text_arg' ),
 			),
 			'slug'  => array(
 				'description'       => __( 'Category slug', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
-				'sanitize_callback' => 'sanitize_title',
+				'maxLength'         => Moqbo_DB::MAX_SLUG_LENGTH,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_slug_arg' ),
 			),
 			'color' => array(
 				'description'       => __( 'Category color (Hex)', 'moqbo' ),
 				'type'              => 'string',
 				'required'          => true,
-				'sanitize_callback' => 'sanitize_hex_color',
+				'minLength'         => 7,
+				'maxLength'         => 7,
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => array( __CLASS__, 'sanitize_color_arg' ),
 			),
 		);
 	}
@@ -525,24 +700,53 @@ class Moqbo_API {
 	 * @return array|WP_Error
 	 */
 	private static function validate_event_request( $request ) {
-		$errors   = new WP_Error();
-		$name     = self::sanitize_text_arg( $request->get_param( 'name' ) );
-		$slug     = sanitize_title( (string) $request->get_param( 'slug' ) );
-		$location = self::sanitize_text_arg( $request->get_param( 'location' ) );
+		$errors      = new WP_Error();
+		$name        = self::sanitize_text_arg( $request->get_param( 'name' ) );
+		$slug        = self::sanitize_slug_arg( $request->get_param( 'slug' ) );
+		$location    = self::sanitize_text_arg( $request->get_param( 'location' ) );
+		$description = self::sanitize_textarea_arg( $request->get_param( 'description' ) );
 
 		if ( '' === $name ) {
 			self::add_validation_error( $errors, 'missing_name', __( 'Event name is required.', 'moqbo' ) );
+		}
+
+		if ( self::exceeds_character_limit( $name, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			self::add_validation_error( $errors, 'name_too_long', __( 'Event name is too long.', 'moqbo' ) );
 		}
 
 		if ( '' === $slug ) {
 			self::add_validation_error( $errors, 'missing_slug', __( 'Event slug is required.', 'moqbo' ) );
 		}
 
+		if ( self::exceeds_character_limit( $slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			self::add_validation_error( $errors, 'slug_too_long', __( 'Event slug is too long.', 'moqbo' ) );
+		}
+
+		if ( '' === $location ) {
+			self::add_validation_error( $errors, 'missing_location', __( 'Event location is required.', 'moqbo' ) );
+		}
+
+		if ( self::exceeds_character_limit( $location, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			self::add_validation_error( $errors, 'location_too_long', __( 'Event location is too long.', 'moqbo' ) );
+		}
+
+		if ( '' === $description ) {
+			self::add_validation_error( $errors, 'missing_description', __( 'Event description is required.', 'moqbo' ) );
+		}
+
+		if ( strlen( $description ) > Moqbo_DB::MAX_DESCRIPTION_BYTES ) {
+			self::add_validation_error( $errors, 'description_too_long', __( 'Event description is too long.', 'moqbo' ) );
+		}
+
 		if ( '' !== $slug && Moqbo_DB::get_event( $slug ) ) {
 			self::add_validation_error( $errors, 'duplicate_slug', __( 'An event with this slug already exists.', 'moqbo' ) );
 		}
 
-		$category_slug = sanitize_title( (string) $request->get_param( 'category_slug' ) );
+		$category_slug = self::sanitize_slug_arg( $request->get_param( 'category_slug' ) );
+
+		if ( self::exceeds_character_limit( $category_slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			self::add_validation_error( $errors, 'category_slug_too_long', __( 'Event category slug is too long.', 'moqbo' ) );
+		}
 
 		if ( '' === $category_slug || ! Moqbo_DB::get_category( $category_slug ) ) {
 			self::add_validation_error( $errors, 'missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
@@ -565,7 +769,7 @@ class Moqbo_API {
 			'start_at'      => $datetime_range['start']->format( 'Y-m-d H:i:s' ),
 			'end_at'        => $datetime_range['end']->format( 'Y-m-d H:i:s' ),
 			'all_day'       => $datetime_range['all_day'] ? 1 : 0,
-			'description'   => self::sanitize_textarea_arg( $request->get_param( 'description' ) ),
+			'description'   => $description,
 			'category_slug' => $category_slug,
 		);
 	}
@@ -579,15 +783,23 @@ class Moqbo_API {
 	private static function validate_category_request( $request ) {
 		$errors = new WP_Error();
 		$name   = self::sanitize_text_arg( $request->get_param( 'name' ) );
-		$slug   = sanitize_title( (string) $request->get_param( 'slug' ) );
-		$color  = sanitize_hex_color( (string) $request->get_param( 'color' ) );
+		$slug   = self::sanitize_slug_arg( $request->get_param( 'slug' ) );
+		$color  = self::sanitize_color_arg( $request->get_param( 'color' ) );
 
 		if ( '' === $name ) {
 			self::add_validation_error( $errors, 'missing_name', __( 'Category name is required.', 'moqbo' ) );
 		}
 
+		if ( self::exceeds_character_limit( $name, Moqbo_DB::MAX_TEXT_LENGTH ) ) {
+			self::add_validation_error( $errors, 'name_too_long', __( 'Category name is too long.', 'moqbo' ) );
+		}
+
 		if ( '' === $slug ) {
 			self::add_validation_error( $errors, 'missing_slug', __( 'Category slug is required.', 'moqbo' ) );
+		}
+
+		if ( self::exceeds_character_limit( $slug, Moqbo_DB::MAX_SLUG_LENGTH ) ) {
+			self::add_validation_error( $errors, 'slug_too_long', __( 'Category slug is too long.', 'moqbo' ) );
 		}
 
 		if ( '' !== $slug && Moqbo_DB::get_category( $slug ) ) {
@@ -618,6 +830,19 @@ class Moqbo_API {
 	 */
 	private static function add_validation_error( $errors, $code, $message ) {
 		$errors->add( $code, $message, array( 'status' => 400 ) );
+	}
+
+	/**
+	 * Check a UTF-8 string against a character limit.
+	 *
+	 * @param string $value String value.
+	 * @param int    $maximum Maximum characters.
+	 * @return bool
+	 */
+	private static function exceeds_character_limit( $value, $maximum ) {
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
+
+		return $length > $maximum;
 	}
 
 	/**

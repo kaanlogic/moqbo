@@ -34,7 +34,7 @@ class Moqbo_Settings {
 	const FEATURE_API = 'moqbo_api';
 
 	/**
-	 * API setting for requiring token authentication.
+	 * API setting for requiring token authentication on GET endpoints.
 	 */
 	const API_AUTH_REQUIRED = 'api_auth_required';
 
@@ -42,6 +42,16 @@ class Moqbo_Settings {
 	 * API bearer token setting.
 	 */
 	const API_TOKEN = 'api_token';
+
+	/**
+	 * Minimum API token length.
+	 */
+	const API_TOKEN_MIN_LENGTH = 32;
+
+	/**
+	 * Maximum API token length.
+	 */
+	const API_TOKEN_MAX_LENGTH = 255;
 
 	/**
 	 * API setting for enabling the events GET endpoint.
@@ -118,7 +128,8 @@ class Moqbo_Settings {
 			$settings[ $key ] = ! empty( $settings[ $key ] );
 		}
 
-		$settings[ self::API_TOKEN ] = is_scalar( $settings[ self::API_TOKEN ] ) ? sanitize_text_field( (string) $settings[ self::API_TOKEN ] ) : '';
+		$token                       = isset( $settings[ self::API_TOKEN ] ) && is_string( $settings[ self::API_TOKEN ] ) ? $settings[ self::API_TOKEN ] : '';
+		$settings[ self::API_TOKEN ] = self::is_valid_api_token( $token ) ? $token : '';
 
 		return $settings;
 	}
@@ -137,7 +148,24 @@ class Moqbo_Settings {
 			$sanitized[ $key ] = ! empty( $value[ $key ] );
 		}
 
-		$sanitized[ self::API_TOKEN ] = isset( $value[ self::API_TOKEN ] ) && is_scalar( $value[ self::API_TOKEN ] ) ? sanitize_text_field( (string) $value[ self::API_TOKEN ] ) : '';
+		$token = isset( $value[ self::API_TOKEN ] ) && is_string( $value[ self::API_TOKEN ] ) ? wp_unslash( $value[ self::API_TOKEN ] ) : '';
+
+		if ( '' !== $token && ! self::is_valid_api_token( $token ) ) {
+			add_settings_error(
+				self::OPTION_NAME,
+				'moqbo_invalid_api_token',
+				sprintf(
+					/* translators: 1: minimum token length, 2: maximum token length. */
+					__( 'The API token must contain between %1$d and %2$d characters using only letters, numbers, dots, underscores, tildes, plus signs, slashes, equals signs, and hyphens.', 'moqbo' ),
+					self::API_TOKEN_MIN_LENGTH,
+					self::API_TOKEN_MAX_LENGTH
+				)
+			);
+
+			return self::get();
+		}
+
+		$sanitized[ self::API_TOKEN ] = $token;
 
 		return $sanitized;
 	}
@@ -163,5 +191,15 @@ class Moqbo_Settings {
 		$settings = self::get();
 
 		return isset( $settings[ self::API_TOKEN ] ) ? (string) $settings[ self::API_TOKEN ] : '';
+	}
+
+	/**
+	 * Validate an API token without normalizing its credential value.
+	 *
+	 * @param mixed $token Token value.
+	 * @return bool
+	 */
+	public static function is_valid_api_token( $token ) {
+		return is_string( $token ) && 1 === preg_match( '/\A[A-Za-z0-9._~+\/=\-]{32,255}\z/D', $token );
 	}
 }

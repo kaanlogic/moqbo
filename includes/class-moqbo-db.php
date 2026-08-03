@@ -14,6 +14,21 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Moqbo_DB {
 	/**
+	 * Maximum character length for stored slugs.
+	 */
+	const MAX_SLUG_LENGTH = 191;
+
+	/**
+	 * Maximum character length for names and locations.
+	 */
+	const MAX_TEXT_LENGTH = 255;
+
+	/**
+	 * Maximum byte length for MySQL TEXT values.
+	 */
+	const MAX_DESCRIPTION_BYTES = 65535;
+
+	/**
 	 * Object cache group for Moqbo query results.
 	 */
 	const CACHE_GROUP = 'moqbo';
