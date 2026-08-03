@@ -12,7 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Native-style category list table.
  */
-class Moqbo_Categories_List_Table extends WP_List_Table {
+class Moqbo_List_Table_Categories extends WP_List_Table {
+
+	/**
+	 * Preparation error.
+	 *
+	 * @var WP_Error|null
+	 */
+	protected $error = null;
+
 	/**
 	 * Initialize table.
 	 */
@@ -27,6 +35,15 @@ class Moqbo_Categories_List_Table extends WP_List_Table {
 	}
 
 	/**
+	 * Return a preparation error.
+	 *
+	 * @return WP_Error|null
+	 */
+	public function get_error() {
+		return $this->error;
+	}
+
+	/**
 	 * Prepare items.
 	 */
 	public function prepare_items() {
@@ -36,6 +53,14 @@ class Moqbo_Categories_List_Table extends WP_List_Table {
 		$orderby      = isset( $_GET['orderby'] ) && is_string( $_GET['orderby'] ) ? sanitize_key( wp_unslash( $_GET['orderby'] ) ) : 'name'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list ordering.
 		$order        = isset( $_GET['order'] ) && is_string( $_GET['order'] ) ? sanitize_key( wp_unslash( $_GET['order'] ) ) : 'ASC'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only list ordering.
 		$total_items  = Moqbo_DB::count_categories( array( 'search' => $search ) );
+
+		if ( is_wp_error( $total_items ) ) {
+			$this->error = $total_items;
+			$total_items = 0;
+		}
+
+		$total_pages  = (int) ceil( $total_items / $per_page );
+		$current_page = min( $current_page, max( 1, $total_pages ) );
 
 		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns(), 'name' );
 		$this->items           = Moqbo_DB::get_categories(
@@ -48,11 +73,16 @@ class Moqbo_Categories_List_Table extends WP_List_Table {
 			)
 		);
 
+		if ( is_wp_error( $this->items ) ) {
+			$this->error = $this->items;
+			$this->items = array();
+		}
+
 		$this->set_pagination_args(
 			array(
 				'total_items' => $total_items,
 				'per_page'    => $per_page,
-				'total_pages' => (int) ceil( $total_items / $per_page ),
+				'total_pages' => $total_pages,
 			)
 		);
 	}
@@ -103,7 +133,7 @@ class Moqbo_Categories_List_Table extends WP_List_Table {
 	 * @return string
 	 */
 	protected function column_cb( $item ) {
-		return sprintf( '<input type="checkbox" name="category[]" value="%s">', esc_attr( $item['slug'] ) );
+		return sprintf( '<input type="checkbox" name="category[]" value="%1$s" id="cb-select-%1$s" aria-label="%2$s">', esc_attr( $item['slug'] ), esc_attr( sprintf( /* translators: %s: category name. */ __( 'Select %s', 'moqbo' ), $item['name'] ) ) );
 	}
 
 	/**
@@ -148,15 +178,34 @@ class Moqbo_Categories_List_Table extends WP_List_Table {
 	}
 
 	/**
+	 * Row actions already include the responsive toggle.
+	 *
+	 * @param array  $item Category item.
+	 * @param string $column_name Column name.
+	 * @param string $primary Primary column name.
+	 * @return string
+	 */
+	protected function handle_row_actions( $item, $column_name, $primary ) {
+		return '';
+	}
+
+	/**
 	 * Color column.
 	 *
 	 * @param array $item Category item.
 	 * @return string
 	 */
 	protected function column_color( $item ) {
+		$color = isset( $item['color'] ) && is_string( $item['color'] ) && preg_match( '/\A#[0-9A-Fa-f]{6}\z/', $item['color'] ) ? strtolower( $item['color'] ) : '';
+
+		if ( '' === $color ) {
+			return esc_html__( 'Invalid color', 'moqbo' );
+		}
+
 		return sprintf(
-			'<span class="moqbo-color-swatch" style="background:%1$s"></span><code>%1$s</code>',
-			esc_attr( $item['color'] )
+			'<span class="moqbo-color-swatch" style="background:%1$s" aria-hidden="true"></span><code>%2$s</code>',
+			esc_attr( $color ),
+			esc_html( $color )
 		);
 	}
 

@@ -1,5 +1,5 @@
 /*! Third-party notices: see ../../third-party-notices.txt. */
-var MoqboBundle = (() => {
+(() => {
   // node_modules/preact/dist/preact.module.js
   var n;
   var l;
@@ -11464,53 +11464,11 @@ var MoqboBundle = (() => {
 
   // src/frontend.js
   var initialized = /* @__PURE__ */ new Set();
-  var DEFAULT_DAY_BOUNDARIES2 = { start: "06:00", end: "24:00" };
-  var DEFAULT_RESPONSIVE_BREAKPOINT = 700;
   var WEEK_GRID_STEP = 60;
   var MIN_WEEK_GRID_HEIGHT = 240;
   var EVENT_POPOVER_MARGIN = 12;
   var activeModal = null;
   var lastFocusedElement = null;
-  var datePickerSyncContainers = /* @__PURE__ */ new WeakSet();
-  function padNumber2(value) {
-    return String(value).padStart(2, "0");
-  }
-  function formatPlainDate(date) {
-    if (!date) {
-      return "";
-    }
-    return padNumber2(date.day) + "." + padNumber2(date.month) + "." + date.year;
-  }
-  function syncDatePickerInput($app) {
-    const datePickerState = $app && $app.datePickerState ? $app.datePickerState : null;
-    if (!datePickerState || !datePickerState.selectedDate || !datePickerState.inputDisplayedValue) {
-      return;
-    }
-    datePickerState.inputDisplayedValue.value = formatPlainDate(datePickerState.selectedDate.value);
-  }
-  function queueDatePickerInputSync($app) {
-    if (!$app) {
-      return;
-    }
-    syncDatePickerInput($app);
-    window.requestAnimationFrame(() => syncDatePickerInput($app));
-  }
-  function setupDatePickerInputSync(container, $app) {
-    if (datePickerSyncContainers.has(container)) {
-      return;
-    }
-    datePickerSyncContainers.add(container);
-    container.addEventListener("click", (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target && target.closest(".sx__today-button")) {
-        queueDatePickerInputSync($app);
-      }
-    });
-  }
-  function getResponsiveBreakpoint(instance) {
-    const breakpoint = Number(instance.config.responsiveBreakpoint);
-    return Number.isFinite(breakpoint) && breakpoint > 0 ? breakpoint : DEFAULT_RESPONSIVE_BREAKPOINT;
-  }
   function isCalendarSmall(container, breakpoint) {
     return container.clientWidth < breakpoint;
   }
@@ -11542,11 +11500,11 @@ var MoqboBundle = (() => {
     queueViewPairing();
     window.addEventListener("resize", queueViewPairing);
   }
-  function normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda) {
-    week.label = "Week";
-    weekAgenda.label = "Week";
-    monthGrid.label = "Month";
-    monthAgenda.label = "Month";
+  function normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda, labels) {
+    week.label = labels.week;
+    weekAgenda.label = labels.week;
+    monthGrid.label = labels.month;
+    monthAgenda.label = labels.month;
   }
   function boundaryHour(value) {
     const hour = parseInt(String(value).split(":")[0], 10);
@@ -11594,12 +11552,8 @@ var MoqboBundle = (() => {
     };
     update();
     window.setTimeout(update, 0);
-    if ("ResizeObserver" in window) {
-      const resizeObserver = new ResizeObserver(update);
-      resizeObserver.observe(container);
-    } else {
-      window.addEventListener("resize", update);
-    }
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(container);
     const mutationObserver = new MutationObserver(update);
     mutationObserver.observe(container, { childList: true, subtree: true });
   }
@@ -11607,10 +11561,8 @@ var MoqboBundle = (() => {
     const scheduleEvent = {
       id: event.id,
       title: event.title,
-      description: event.description,
       location: event.location,
       calendarId: event.calendarId,
-      options: event.options || { disableDND: true, disableResize: true },
       moqboModal: event.modal
     };
     if (event.allDay) {
@@ -11740,8 +11692,8 @@ var MoqboBundle = (() => {
     }
     const container = document.getElementById(instance.containerId);
     const modal = document.getElementById(instance.modalId);
-    const dayBoundaries = instance.config.dayBoundaries || DEFAULT_DAY_BOUNDARIES2;
-    const responsiveBreakpoint = getResponsiveBreakpoint(instance);
+    const dayBoundaries = instance.config.dayBoundaries;
+    const responsiveBreakpoint = instance.config.responsiveBreakpoint;
     if (!container) {
       return;
     }
@@ -11751,20 +11703,20 @@ var MoqboBundle = (() => {
       const weekAgenda = createViewWeekAgenda();
       const monthGrid = createViewMonthGrid();
       const monthAgenda = createViewMonthAgenda();
-      normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda);
+      normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda, instance.i18n);
       const viewNames = {
         week: week.name,
         weekAgenda: weekAgenda.name,
         monthGrid: monthGrid.name,
         monthAgenda: monthAgenda.name
       };
-      const events = (instance.config.events || []).map(eventToScheduleX);
-      const eventModals = new Map(events.map((event) => [String(event.id), event.moqboModal]));
-      let scheduleXApp = null;
+      let fetchSequence = 0;
+      let latestEvents = [];
+      let fetchController = null;
       const calendar = createCalendar({
         views: [week, weekAgenda, monthGrid, monthAgenda],
-        events,
-        calendars: instance.config.calendars || {},
+        events: [],
+        calendars: instance.config.calendars,
         locale: instance.config.locale,
         timezone: instance.config.timezone,
         firstDayOfWeek: instance.config.firstDayOfWeek,
@@ -11776,20 +11728,44 @@ var MoqboBundle = (() => {
           timeAxisFormatOptions: { hour: "2-digit", minute: "2-digit", hour12: false }
         },
         callbacks: {
+          fetchEvents: async (range) => {
+            const sequence = ++fetchSequence;
+            if (fetchController) {
+              fetchController.abort();
+            }
+            fetchController = new AbortController();
+            try {
+              const url = new URL(instance.eventsUrl, window.location.href);
+              url.searchParams.set("start_date", range.start.toPlainDate().toString());
+              url.searchParams.set("end_date", range.end.toPlainDate().toString());
+              const response = await fetch(url.toString(), {
+                credentials: "same-origin",
+                signal: fetchController.signal
+              });
+              if (!response.ok) {
+                throw new Error("HTTP " + response.status);
+              }
+              const payload = await response.json();
+              const events = payload.events.map(eventToScheduleX);
+              if (sequence !== fetchSequence) {
+                return latestEvents;
+              }
+              latestEvents = events;
+              return events;
+            } catch (error) {
+              if (error && "AbortError" === error.name) {
+                return latestEvents;
+              }
+              console.error("Moqbo events could not be loaded.", error);
+              return latestEvents;
+            }
+          },
           isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
-          onEventClick: (payload, uiEvent) => {
-            const clickedEvent = payload && payload.event ? payload.event : payload;
-            const eventModal = clickedEvent && clickedEvent.moqboModal ? clickedEvent.moqboModal : eventModals.get(String(clickedEvent && clickedEvent.id));
-            openEventPopover(modal, eventModal, uiEvent);
+          onEventClick: (event, uiEvent) => {
+            openEventPopover(modal, event.moqboModal, uiEvent);
           },
           onRender: ($app) => {
-            scheduleXApp = $app;
             setupResponsiveViewPairing(container, $app, viewNames, responsiveBreakpoint);
-            setupDatePickerInputSync(container, $app);
-            queueDatePickerInputSync($app);
-          },
-          onSelectedDateUpdate: () => {
-            queueDatePickerInputSync(scheduleXApp);
           }
         }
       });
@@ -11801,7 +11777,21 @@ var MoqboBundle = (() => {
     }
   }
   function initCalendars() {
-    (window.MoqboCalendars || []).forEach(initInstance);
+    document.querySelectorAll("[data-moqbo-instance]").forEach((wrapper) => {
+      const config2 = wrapper.querySelector("[data-moqbo-config]");
+      if (!config2) {
+        return;
+      }
+      try {
+        initInstance(JSON.parse(config2.textContent || "{}"));
+      } catch (error) {
+        const container = wrapper.querySelector(".moqbo-calendar");
+        if (container) {
+          renderError(container, wrapper.getAttribute("data-moqbo-error") || "");
+        }
+        console.error("Moqbo calendar configuration is invalid.", error);
+      }
+    });
   }
   document.addEventListener("keydown", (event) => {
     if ("Escape" === event.key && activeModal) {

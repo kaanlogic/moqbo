@@ -14,31 +14,62 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Moqbo_Shortcode {
 	/**
+	 * Whether a dynamically rendered shortcode needs footer assets.
+	 *
+	 * @var bool
+	 */
+	private static $needs_late_assets = false;
+
+	/**
 	 * Register the shortcode.
 	 */
 	public static function register() {
-		if ( Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_SHORTCODE ) ) {
-			add_shortcode( 'moqbo', array( __CLASS__, 'render' ) );
-		}
-
-		if ( Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_GETDATE_SHORTCODE ) ) {
-			add_shortcode( 'moqbo-getdate', array( __CLASS__, 'render_getdate' ) );
-		}
+		add_shortcode( 'moqbo', array( __CLASS__, 'render' ) );
+		add_shortcode( 'moqbo-getdate', array( __CLASS__, 'render_getdate' ) );
 	}
 
 	/**
-	 * Enqueue assets early when a singular post contains the shortcode.
+	 * Enqueue assets early when the queried post contains the calendar.
 	 */
 	public static function maybe_enqueue_assets() {
 		global $post;
 
+		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'moqbo' ) ) {
+			self::enqueue_assets();
+		}
+	}
+
+	/**
+	 * Enqueue assets in the footer for dynamically rendered calendars.
+	 */
+	public static function enqueue_late_assets() {
+		if ( ! self::$needs_late_assets ) {
+			return;
+		}
+
+		self::enqueue_assets();
+		wp_print_styles( array( 'moqbo-schedule-x', 'moqbo-frontend' ) );
+	}
+
+	/**
+	 * Enqueue frontend assets.
+	 */
+	private static function enqueue_assets() {
 		if ( ! Moqbo_Settings::is_feature_enabled( Moqbo_Settings::FEATURE_MOQBO_SHORTCODE ) ) {
 			return;
 		}
 
-		if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'moqbo' ) ) {
-			self::enqueue_assets();
+		$theme_css = MOQBO_DIR . 'assets/dist/frontend.css';
+		$script    = MOQBO_DIR . 'assets/dist/frontend.js';
+		$style     = MOQBO_DIR . 'assets/css/frontend.css';
+
+		if ( ! file_exists( $theme_css ) || ! file_exists( $script ) ) {
+			return;
 		}
+
+		wp_enqueue_style( 'moqbo-schedule-x', MOQBO_URL . 'assets/dist/frontend.css', array(), self::asset_version( $theme_css ) );
+		wp_enqueue_style( 'moqbo-frontend', MOQBO_URL . 'assets/css/frontend.css', array( 'moqbo-schedule-x' ), self::asset_version( $style ) );
+		wp_enqueue_script( 'moqbo-frontend', MOQBO_URL . 'assets/dist/frontend.js', array(), self::asset_version( $script ), true );
 	}
 
 	/**
@@ -51,24 +82,48 @@ class Moqbo_Shortcode {
 			return '';
 		}
 
-		self::enqueue_assets();
+		if ( is_feed() || wp_is_json_request() ) {
+			return '';
+		}
+
+		if ( ! file_exists( MOQBO_DIR . 'assets/dist/frontend.js' ) || ! file_exists( MOQBO_DIR . 'assets/dist/frontend.css' ) ) {
+			$message = current_user_can( 'manage_options' )
+				? __( 'The calendar could not be loaded because the generated frontend assets are missing.', 'moqbo' )
+				: __( 'The calendar could not be loaded.', 'moqbo' );
+
+			return '<div class="moqbo-calendar-error">' . esc_html( $message ) . '</div>';
+		}
+
+		if ( ! wp_script_is( 'moqbo-frontend', 'enqueued' ) ) {
+			self::$needs_late_assets = true;
+
+			if ( doing_action( 'wp_footer' ) ) {
+				self::enqueue_late_assets();
+
+				if ( did_action( 'wp_print_footer_scripts' ) ) {
+					wp_print_footer_scripts();
+				}
+			}
+		}
 
 		$container_id = wp_unique_id( 'moqbo-calendar-' );
 		$modal_id     = wp_unique_id( 'moqbo-event-popover-' );
 		$config       = self::build_instance_config( $container_id, $modal_id );
-		$json         = wp_json_encode( $config );
 
-		if ( false !== $json ) {
-			wp_add_inline_script(
-				'moqbo-frontend',
-				'window.MoqboCalendars = window.MoqboCalendars || []; window.MoqboCalendars.push(' . $json . ');',
-				'before'
-			);
+		if ( is_wp_error( $config ) ) {
+			return '<div class="moqbo-calendar-error">' . esc_html( $config->get_error_message() ) . '</div>';
+		}
+
+		$json         = wp_json_encode( $config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+
+		if ( false === $json ) {
+			return '<div class="moqbo-calendar-error">' . esc_html__( 'The calendar could not be loaded.', 'moqbo' ) . '</div>';
 		}
 
 		ob_start();
 		?>
-		<div class="moqbo-shortcode" data-moqbo-instance>
+		<div class="moqbo-shortcode" data-moqbo-instance data-moqbo-error="<?php echo esc_attr( $config['i18n']['loadError'] ); ?>">
+			<script type="application/json" data-moqbo-config><?php echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON_HEX_* encoding makes script data safe. ?></script>
 			<div id="<?php echo esc_attr( $container_id ); ?>" class="moqbo-calendar" aria-label="<?php esc_attr_e( 'Event calendar', 'moqbo' ); ?>"></div>
 			<div id="<?php echo esc_attr( $modal_id ); ?>" class="sx__event-modal moqbo-event-popover" hidden aria-hidden="true">
 				<div class="sx__event-modal-default moqbo-event-popover__surface" role="dialog" aria-modal="false" aria-labelledby="<?php echo esc_attr( $modal_id ); ?>-title">
@@ -110,57 +165,22 @@ class Moqbo_Shortcode {
 		$name = sanitize_text_field( $atts['name'] );
 
 		if ( '' === $name ) {
-			return 'n/a';
+			return esc_html__( 'n/a', 'moqbo' );
 		}
 
 		$event = Moqbo_DB::get_next_event_by_name( $name );
 
-		if ( ! $event ) {
-			return 'n/a';
+		if ( is_wp_error( $event ) || ! $event ) {
+			return esc_html__( 'n/a', 'moqbo' );
 		}
 
 		$dt = self::parse_stored_datetime( $event['start_at'] );
 
 		if ( ! $dt ) {
-			return 'n/a';
+			return esc_html__( 'n/a', 'moqbo' );
 		}
 
 		return esc_html( wp_date( get_option( 'date_format' ), $dt->getTimestamp(), wp_timezone() ) );
-	}
-
-	/**
-	 * Enqueue frontend assets.
-	 */
-	private static function enqueue_assets() {
-		$theme_css = MOQBO_DIR . 'assets/dist/frontend.css';
-		$script    = MOQBO_DIR . 'assets/dist/frontend.js';
-		$style     = MOQBO_DIR . 'assets/css/frontend.css';
-
-		if ( file_exists( $theme_css ) ) {
-			wp_enqueue_style(
-				'moqbo-schedule-x',
-				MOQBO_URL . 'assets/dist/frontend.css',
-				array(),
-				self::asset_version( $theme_css )
-			);
-		}
-
-		wp_enqueue_style(
-			'moqbo-frontend',
-			MOQBO_URL . 'assets/css/frontend.css',
-			file_exists( $theme_css ) ? array( 'moqbo-schedule-x' ) : array(),
-			self::asset_version( $style )
-		);
-
-		if ( file_exists( $script ) ) {
-			wp_enqueue_script(
-				'moqbo-frontend',
-				MOQBO_URL . 'assets/dist/frontend.js',
-				array(),
-				self::asset_version( $script ),
-				true
-			);
-		}
 	}
 
 	/**
@@ -171,22 +191,30 @@ class Moqbo_Shortcode {
 	 * @return array
 	 */
 	private static function build_instance_config( $container_id, $modal_id ) {
+		$calendars = self::prepare_calendars();
+
+		if ( is_wp_error( $calendars ) ) {
+			return $calendars;
+		}
+
 		return array(
 			'containerId' => $container_id,
 			'modalId'     => $modal_id,
+			'eventsUrl'   => rest_url( Moqbo_API::REST_NAMESPACE . '/calendar-events' ),
 			'config'      => array(
 				'timezone'             => self::schedule_x_timezone(),
-				'locale'               => str_replace( '_', '-', get_locale() ),
+				'locale'               => self::schedule_x_locale(),
 				'firstDayOfWeek'       => self::schedule_x_first_day_of_week(),
 				'responsiveBreakpoint' => 700,
 				'dayBoundaries'        => array(
 					'start' => '06:00',
 					'end'   => '24:00',
 				),
-				'events'               => self::prepare_events(),
-				'calendars'            => self::prepare_calendars(),
+				'calendars'            => $calendars,
 			),
 			'i18n'        => array(
+				'week'      => _x( 'Week', 'calendar view', 'moqbo' ),
+				'month'     => _x( 'Month', 'calendar view', 'moqbo' ),
 				'loadError' => __( 'The calendar could not be loaded.', 'moqbo' ),
 			),
 		);
@@ -195,16 +223,10 @@ class Moqbo_Shortcode {
 	/**
 	 * Prepare Schedule-X events.
 	 *
+	 * @param array $events Event rows.
 	 * @return array
 	 */
-	private static function prepare_events() {
-		$events = Moqbo_DB::get_events(
-			array(
-				'orderby' => 'start',
-				'order'   => 'ASC',
-			)
-		);
-
+	public static function prepare_events( $events ) {
 		return array_values(
 			array_map(
 				function ( $event ) {
@@ -215,16 +237,9 @@ class Moqbo_Shortcode {
 					$prepared = array(
 						'id'          => $event['slug'],
 						'title'       => $event['name'],
-						'description' => $description,
 						'location'    => $location,
 						'calendarId'  => $event['category_slug'],
 						'allDay'      => $all_day,
-						'startDate'   => substr( $event['start_at'], 0, 10 ),
-						'endDate'     => substr( $event['end_at'], 0, 10 ),
-						'options'     => array(
-							'disableDND'    => true,
-							'disableResize' => true,
-						),
 						'modal'       => array(
 							'title'         => $event['name'],
 							'categoryName'  => $event['category_name'] ? $event['category_name'] : $event['category_slug'],
@@ -236,7 +251,10 @@ class Moqbo_Shortcode {
 						),
 					);
 
-					if ( ! $all_day ) {
+					if ( $all_day ) {
+						$prepared['startDate'] = substr( $event['start_at'], 0, 10 );
+						$prepared['endDate']   = substr( $event['end_at'], 0, 10 );
+					} else {
 						$prepared['startZoned'] = self::format_zoned_datetime( $event['start_at'] );
 						$prepared['endZoned']   = self::format_zoned_datetime( $event['end_at'] );
 					}
@@ -262,10 +280,13 @@ class Moqbo_Shortcode {
 		);
 		$calendars  = array();
 
+		if ( is_wp_error( $categories ) ) {
+			return $categories;
+		}
+
 		foreach ( $categories as $category ) {
 			$main            = self::normalize_hex( $category['color'] );
 			$light_container = self::mix_hex( $main, '#ffffff', 0.84 );
-			$dark_container  = self::mix_hex( $main, '#000000', 0.48 );
 			$color_name      = strtolower( preg_replace( '/[^a-z0-9_-]/', '-', $category['slug'] ) );
 
 			if ( '' === $color_name ) {
@@ -278,11 +299,6 @@ class Moqbo_Shortcode {
 					'main'        => $main,
 					'container'   => $light_container,
 					'onContainer' => self::readable_text_color( $light_container ),
-				),
-				'darkColors'  => array(
-					'main'        => self::mix_hex( $main, '#ffffff', 0.45 ),
-					'container'   => $dark_container,
-					'onContainer' => self::readable_text_color( $dark_container ),
 				),
 			);
 		}
@@ -302,18 +318,68 @@ class Moqbo_Shortcode {
 	}
 
 	/**
-	 * Get an IANA timezone for Schedule-X, falling back to UTC.
+	 * Get a Temporal-compatible timezone for Schedule-X.
 	 *
 	 * @return string
 	 */
 	private static function schedule_x_timezone() {
 		$timezone = wp_timezone_string();
 
-		if ( '' === $timezone || ! in_array( $timezone, timezone_identifiers_list(), true ) ) {
-			return 'UTC';
+		if ( in_array( $timezone, timezone_identifiers_list(), true ) ) {
+			return $timezone;
 		}
 
-		return $timezone;
+		return preg_match( '/^[+-](?:0\d|1\d|2[0-3]):[0-5]\d$/', $timezone ) ? $timezone : 'UTC';
+	}
+
+	/**
+	 * Map the WordPress locale to a Schedule-X locale.
+	 *
+	 * @return string
+	 */
+	private static function schedule_x_locale() {
+		$locales = array(
+			'ar-EG', 'ca-ES', 'cs-CZ', 'da-DK', 'de-DE', 'en-GB', 'en-US', 'es-ES', 'et-EE', 'fa-IR', 'fi-FI', 'fr-FR',
+			'he-IL', 'hr-HR', 'id-ID', 'it-IT', 'ja-JP', 'ko-KR', 'ky-KG', 'lt-LT', 'mk-MK', 'nb-NO', 'nl-NL', 'pl-PL',
+			'pt-BR', 'ro-RO', 'ru-RU', 'sk-SK', 'sl-SI', 'sr-Latn-RS', 'sr-RS', 'sv-SE', 'tr-TR', 'uk-UA', 'zh-CN', 'zh-TW',
+		);
+		$normalized = str_replace( '_', '-', get_locale() );
+
+		foreach ( $locales as $locale ) {
+			if ( 0 === strcasecmp( $normalized, $locale ) ) {
+				return $locale;
+			}
+		}
+
+		$regional_fallbacks = array(
+			'en-AU' => 'en-GB', 'en-IE' => 'en-GB', 'en-NZ' => 'en-GB', 'en-ZA' => 'en-GB',
+			'zh-HK' => 'zh-TW', 'zh-MO' => 'zh-TW', 'zh-SG' => 'zh-CN',
+		);
+
+		foreach ( $regional_fallbacks as $source => $target ) {
+			if ( 0 === stripos( $normalized, $source ) ) {
+				return $target;
+			}
+		}
+
+		$language_fallbacks = array(
+			'ar' => 'ar-EG', 'ca' => 'ca-ES', 'cs' => 'cs-CZ', 'da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-US', 'es' => 'es-ES',
+			'et' => 'et-EE', 'fa' => 'fa-IR', 'fi' => 'fi-FI', 'fr' => 'fr-FR', 'he' => 'he-IL', 'hr' => 'hr-HR', 'id' => 'id-ID',
+			'it' => 'it-IT', 'ja' => 'ja-JP', 'kir' => 'ky-KG', 'ko' => 'ko-KR', 'ky' => 'ky-KG', 'lt' => 'lt-LT', 'mk' => 'mk-MK', 'nb' => 'nb-NO',
+			'nl' => 'nl-NL', 'pl' => 'pl-PL', 'pt' => 'pt-BR', 'ro' => 'ro-RO', 'ru' => 'ru-RU', 'sk' => 'sk-SK', 'sl' => 'sl-SI',
+			'sr' => 'sr-RS', 'sv' => 'sv-SE', 'tr' => 'tr-TR', 'uk' => 'uk-UA', 'zh' => 'zh-CN',
+		);
+		$language           = strtolower( strtok( $normalized, '-' ) );
+
+		if ( 0 === strcasecmp( $normalized, 'sr-Latn-RS' ) || 0 === stripos( $normalized, 'sr-Latn' ) ) {
+			return 'sr-Latn-RS';
+		}
+
+		if ( 'zh' === $language && false !== stripos( $normalized, 'TW' ) ) {
+			return 'zh-TW';
+		}
+
+		return isset( $language_fallbacks[ $language ] ) ? $language_fallbacks[ $language ] : 'en-US';
 	}
 
 	/**
@@ -330,7 +396,9 @@ class Moqbo_Shortcode {
 			return gmdate( 'Y-m-d\TH:i:s+00:00[UTC]' );
 		}
 
-		return $dt->format( 'Y-m-d\TH:i:sP' ) . '[' . $timezone . ']';
+		$annotation = in_array( wp_timezone_string(), timezone_identifiers_list(), true ) ? $timezone : $dt->format( 'P' );
+
+		return $dt->format( 'Y-m-d\TH:i:sP' ) . '[' . $annotation . ']';
 	}
 
 	/**
@@ -347,7 +415,11 @@ class Moqbo_Shortcode {
 			return $datetime;
 		}
 
-		$format = $all_day ? 'd.m.Y' : 'd.m.Y H:i';
+		$format = (string) get_option( 'date_format' );
+
+		if ( ! $all_day ) {
+			$format .= ' ' . (string) get_option( 'time_format' );
+		}
 
 		return wp_date( $format, $dt->getTimestamp(), wp_timezone() );
 	}

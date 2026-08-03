@@ -36,8 +36,10 @@ final class Moqbo {
 	 * Register hooks.
 	 */
 	public static function init() {
+		Moqbo_DB::init();
 		add_action( 'init', array( 'Moqbo_Shortcode', 'register' ) );
 		add_action( 'wp_enqueue_scripts', array( 'Moqbo_Shortcode', 'maybe_enqueue_assets' ) );
+		add_action( 'wp_footer', array( 'Moqbo_Shortcode', 'enqueue_late_assets' ), 19 );
 		Moqbo_API::init();
 
 		if ( is_admin() ) {
@@ -52,7 +54,11 @@ final class Moqbo {
  * @param bool $network_wide Whether the plugin is network activated.
  */
 function moqbo_activate( $network_wide ) {
-	Moqbo_DB::activate( $network_wide );
+	$result = Moqbo_DB::activate( $network_wide );
+
+	if ( is_wp_error( $result ) ) {
+		wp_die( esc_html__( 'Moqbo could not create its database tables. Check the server error log and try again.', 'moqbo' ) );
+	}
 }
 
 register_activation_hook( __FILE__, 'moqbo_activate' );

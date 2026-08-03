@@ -14,7 +14,7 @@ Moqbo is a WordPress event calendar for managing categorized timed and all-day e
 - Use the site locale, timezone, and first day of the week
 - Show calendars with `[moqbo]` and the next matching event date with `[moqbo-getdate]`
 - Enable optional REST API access for reading and creating events and categories
-- Control each shortcode and API method separately; writes always require an administrator or API token
+- Control each shortcode and API method separately; writes always require the configured token
 
 ## Requirements
 
@@ -35,8 +35,8 @@ The plugin can also be activated through the WordPress Plugins screen.
 
 ## Quick Start
 
-1. Create a category under Moqbo > Categories.
-2. Create an event under Moqbo > Add Event.
+1. Create a category under "Moqbo > Categories".
+2. Create an event under "Moqbo > Add Event".
 3. Add `[moqbo]` to a post or page.
 
 To display the next date for a matching event, use:
@@ -45,7 +45,7 @@ To display the next date for a matching event, use:
 [moqbo-getdate name="Office Hours"]
 ```
 
-Features and API access can be configured under Moqbo > Settings. GET endpoints may be public, while POST endpoints always require a WordPress administrator or a configured API token. See [`readme.txt`](readme.txt) for complete usage and REST API documentation.
+Features and API access can be configured under "Moqbo > Settings". GET endpoints may be public, while POST endpoints always require the configured token. See [`readme.txt`](readme.txt) for complete usage and REST API documentation.
 
 ## Development
 

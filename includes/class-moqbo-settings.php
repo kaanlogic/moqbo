@@ -122,7 +122,7 @@ class Moqbo_Settings {
 			return self::defaults();
 		}
 
-		$settings = wp_parse_args( $stored, self::defaults() );
+		$settings = array_intersect_key( wp_parse_args( $stored, self::defaults() ), self::defaults() );
 
 		foreach ( self::boolean_keys() as $key ) {
 			$settings[ $key ] = ! empty( $settings[ $key ] );
@@ -148,7 +148,7 @@ class Moqbo_Settings {
 			$sanitized[ $key ] = ! empty( $value[ $key ] );
 		}
 
-		$token = isset( $value[ self::API_TOKEN ] ) && is_string( $value[ self::API_TOKEN ] ) ? wp_unslash( $value[ self::API_TOKEN ] ) : '';
+		$token = isset( $value[ self::API_TOKEN ] ) && is_string( $value[ self::API_TOKEN ] ) ? $value[ self::API_TOKEN ] : '';
 
 		if ( '' !== $token && ! self::is_valid_api_token( $token ) ) {
 			add_settings_error(
@@ -162,7 +162,7 @@ class Moqbo_Settings {
 				)
 			);
 
-			return self::get();
+			$token = self::get_api_token();
 		}
 
 		$sanitized[ self::API_TOKEN ] = $token;
@@ -202,4 +202,5 @@ class Moqbo_Settings {
 	public static function is_valid_api_token( $token ) {
 		return is_string( $token ) && 1 === preg_match( '/\A[A-Za-z0-9._~+\/=\-]{32,255}\z/D', $token );
 	}
+
 }

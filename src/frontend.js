@@ -3,68 +3,12 @@ import "temporal-polyfill/global";
 import "@schedule-x/theme-default/dist/index.css";
 
 const initialized = new Set();
-const DEFAULT_DAY_BOUNDARIES = { start: "06:00", end: "24:00" };
-const DEFAULT_RESPONSIVE_BREAKPOINT = 700;
 const WEEK_GRID_STEP = 60;
 const MIN_WEEK_GRID_HEIGHT = 240;
 const EVENT_POPOVER_MARGIN = 12;
 
 let activeModal = null;
 let lastFocusedElement = null;
-
-const datePickerSyncContainers = new WeakSet();
-
-function padNumber(value) {
-    return String(value).padStart(2, "0");
-}
-
-function formatPlainDate(date) {
-    if (!date) {
-        return "";
-    }
-
-    return padNumber(date.day) + "." + padNumber(date.month) + "." + date.year;
-}
-
-function syncDatePickerInput($app) {
-    const datePickerState = $app && $app.datePickerState ? $app.datePickerState : null;
-
-    if (!datePickerState || !datePickerState.selectedDate || !datePickerState.inputDisplayedValue) {
-        return;
-    }
-
-    datePickerState.inputDisplayedValue.value = formatPlainDate(datePickerState.selectedDate.value);
-}
-
-function queueDatePickerInputSync($app) {
-    if (!$app) {
-        return;
-    }
-
-    syncDatePickerInput($app);
-    window.requestAnimationFrame(() => syncDatePickerInput($app));
-}
-
-function setupDatePickerInputSync(container, $app) {
-    if (datePickerSyncContainers.has(container)) {
-        return;
-    }
-
-    datePickerSyncContainers.add(container);
-    container.addEventListener("click", (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-
-        if (target && target.closest(".sx__today-button")) {
-            queueDatePickerInputSync($app);
-        }
-    });
-}
-
-function getResponsiveBreakpoint(instance) {
-    const breakpoint = Number(instance.config.responsiveBreakpoint);
-
-    return Number.isFinite(breakpoint) && breakpoint > 0 ? breakpoint : DEFAULT_RESPONSIVE_BREAKPOINT;
-}
 
 function isCalendarSmall(container, breakpoint) {
     return container.clientWidth < breakpoint;
@@ -105,11 +49,11 @@ function setupResponsiveViewPairing(container, $app, viewNames, breakpoint) {
     window.addEventListener("resize", queueViewPairing);
 }
 
-function normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda) {
-    week.label = "Week";
-    weekAgenda.label = "Week";
-    monthGrid.label = "Month";
-    monthAgenda.label = "Month";
+function normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda, labels) {
+    week.label = labels.week;
+    weekAgenda.label = labels.week;
+    monthGrid.label = labels.month;
+    monthAgenda.label = labels.month;
 }
 
 function boundaryHour(value) {
@@ -171,13 +115,8 @@ function setupWeekGridSizing(container, dayBoundaries, gridStep) {
     update();
     window.setTimeout(update, 0);
 
-    if ("ResizeObserver" in window) {
-        const resizeObserver = new ResizeObserver(update);
-        resizeObserver.observe(container);
-    }
-    else {
-        window.addEventListener("resize", update);
-    }
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(container);
 
     const mutationObserver = new MutationObserver(update);
     mutationObserver.observe(container, { childList: true, subtree: true });
@@ -187,10 +126,8 @@ function eventToScheduleX(event) {
     const scheduleEvent = {
         id: event.id,
         title: event.title,
-        description: event.description,
         location: event.location,
         calendarId: event.calendarId,
-        options: event.options || { disableDND: true, disableResize: true },
         moqboModal: event.modal
     };
 
@@ -353,8 +290,8 @@ function initInstance(instance) {
 
     const container = document.getElementById(instance.containerId);
     const modal = document.getElementById(instance.modalId);
-    const dayBoundaries = instance.config.dayBoundaries || DEFAULT_DAY_BOUNDARIES;
-    const responsiveBreakpoint = getResponsiveBreakpoint(instance);
+    const dayBoundaries = instance.config.dayBoundaries;
+    const responsiveBreakpoint = instance.config.responsiveBreakpoint;
 
     if (!container) {
         return;
@@ -367,21 +304,21 @@ function initInstance(instance) {
         const weekAgenda = createViewWeekAgenda();
         const monthGrid = createViewMonthGrid();
         const monthAgenda = createViewMonthAgenda();
-        normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda);
+        normalizeViewLabels(week, weekAgenda, monthGrid, monthAgenda, instance.i18n);
         const viewNames = {
             week: week.name,
             weekAgenda: weekAgenda.name,
             monthGrid: monthGrid.name,
             monthAgenda: monthAgenda.name
         };
-        const events = (instance.config.events || []).map(eventToScheduleX);
-        const eventModals = new Map(events.map((event) => [String(event.id), event.moqboModal]));
-        let scheduleXApp = null;
+        let fetchSequence = 0;
+        let latestEvents = [];
+        let fetchController = null;
 
         const calendar = createCalendar({
             views: [week, weekAgenda, monthGrid, monthAgenda],
-            events,
-            calendars: instance.config.calendars || {},
+            events: [],
+            calendars: instance.config.calendars,
             locale: instance.config.locale,
             timezone: instance.config.timezone,
             firstDayOfWeek: instance.config.firstDayOfWeek,
@@ -393,21 +330,54 @@ function initInstance(instance) {
                 timeAxisFormatOptions: { hour: "2-digit", minute: "2-digit", hour12: false }
             },
             callbacks: {
-                isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
-                onEventClick: (payload, uiEvent) => {
-                    const clickedEvent = payload && payload.event ? payload.event : payload;
-                    const eventModal = clickedEvent && clickedEvent.moqboModal ? clickedEvent.moqboModal : eventModals.get(String(clickedEvent && clickedEvent.id));
+                fetchEvents: async (range) => {
+                    const sequence = ++fetchSequence;
 
-                    openEventPopover(modal, eventModal, uiEvent);
+                    if (fetchController) {
+                        fetchController.abort();
+                    }
+
+                    fetchController = new AbortController();
+
+                    try {
+                        const url = new URL(instance.eventsUrl, window.location.href);
+                        url.searchParams.set("start_date", range.start.toPlainDate().toString());
+                        url.searchParams.set("end_date", range.end.toPlainDate().toString());
+                        const response = await fetch(url.toString(), {
+                            credentials: "same-origin",
+                            signal: fetchController.signal
+                        });
+
+                        if (!response.ok) {
+                            throw new Error("HTTP " + response.status);
+                        }
+
+                        const payload = await response.json();
+                        const events = payload.events.map(eventToScheduleX);
+
+                        if (sequence !== fetchSequence) {
+                            return latestEvents;
+                        }
+
+                        latestEvents = events;
+
+                        return events;
+                    }
+                    catch (error) {
+                        if (error && "AbortError" === error.name) {
+                            return latestEvents;
+                        }
+
+                        console.error("Moqbo events could not be loaded.", error);
+                        return latestEvents;
+                    }
+                },
+                isCalendarSmall: () => isCalendarSmall(container, responsiveBreakpoint),
+                onEventClick: (event, uiEvent) => {
+                    openEventPopover(modal, event.moqboModal, uiEvent);
                 },
                 onRender: ($app) => {
-                    scheduleXApp = $app;
                     setupResponsiveViewPairing(container, $app, viewNames, responsiveBreakpoint);
-                    setupDatePickerInputSync(container, $app);
-                    queueDatePickerInputSync($app);
-                },
-                onSelectedDateUpdate: () => {
-                    queueDatePickerInputSync(scheduleXApp);
                 }
             }
         });
@@ -422,7 +392,26 @@ function initInstance(instance) {
 }
 
 function initCalendars() {
-    (window.MoqboCalendars || []).forEach(initInstance);
+    document.querySelectorAll("[data-moqbo-instance]").forEach((wrapper) => {
+        const config = wrapper.querySelector("[data-moqbo-config]");
+
+        if (!config) {
+            return;
+        }
+
+        try {
+            initInstance(JSON.parse(config.textContent || "{}"));
+        }
+        catch (error) {
+            const container = wrapper.querySelector(".moqbo-calendar");
+
+            if (container) {
+                renderError(container, wrapper.getAttribute("data-moqbo-error") || "");
+            }
+
+            console.error("Moqbo calendar configuration is invalid.", error);
+        }
+    });
 }
 
 document.addEventListener("keydown", (event) => {

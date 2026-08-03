@@ -14,6 +14,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Moqbo_DB {
 	/**
+	 * Number of sites processed per network batch.
+	 */
+	const NETWORK_BATCH_SIZE = 100;
+
+	/**
 	 * Maximum character length for stored slugs.
 	 */
 	const MAX_SLUG_LENGTH = 191;
@@ -39,29 +44,105 @@ class Moqbo_DB {
 	const CACHE_LAST_CHANGED_KEY = 'last_changed';
 
 	/**
+	 * Register database lifecycle hooks.
+	 */
+	public static function init() {
+		add_action( 'wp_initialize_site', array( __CLASS__, 'initialize_site' ), 20, 2 );
+		add_filter( 'wpmu_drop_tables', array( __CLASS__, 'filter_drop_tables' ), 10, 2 );
+	}
+
+	/**
 	 * Activate the plugin on one or all sites.
 	 *
 	 * @param bool $network_wide Whether the plugin is network activated.
 	 */
 	public static function activate( $network_wide ) {
 		if ( is_multisite() && $network_wide ) {
+			return self::run_network_install_batch( get_current_network_id() );
+		}
+
+		return self::create_schema();
+	}
+
+	/**
+	 * Provision a newly initialized site when Moqbo is network-active.
+	 *
+	 * @param WP_Site $site New site object.
+	 * @param array   $args Site initialization arguments.
+	 */
+	public static function initialize_site( $site, $args ) {
+		unset( $args );
+		$active = get_network_option( (int) $site->network_id, 'active_sitewide_plugins', array() );
+
+		if ( ! isset( $active[ plugin_basename( MOQBO_FILE ) ] ) || ! wp_is_site_initialized( $site ) ) {
+			return;
+		}
+
+		switch_to_blog( (int) $site->blog_id );
+
+		try {
+			self::create_schema();
+		} finally {
+			restore_current_blog();
+		}
+	}
+
+	/**
+	 * Add Moqbo tables to permanent subsite cleanup.
+	 *
+	 * @param array $tables Tables WordPress will drop.
+	 * @param int   $site_id Site ID.
+	 * @return array
+	 */
+	public static function filter_drop_tables( $tables, $site_id ) {
+		global $wpdb;
+
+		$prefix   = $wpdb->get_blog_prefix( (int) $site_id );
+		$tables[] = $prefix . 'moqbo_events';
+		$tables[] = $prefix . 'moqbo_categories';
+
+		return array_values( array_unique( $tables ) );
+	}
+
+	/**
+	 * Install network sites synchronously in bounded batches.
+	 *
+	 * @param int $network_id Network ID.
+	 * @return true|WP_Error
+	 */
+	public static function run_network_install_batch( $network_id ) {
+		$offset = 0;
+
+		do {
 			$site_ids = get_sites(
 				array(
-					'fields' => 'ids',
-					'number' => 0,
+					'fields'     => 'ids',
+					'network_id' => (int) $network_id,
+					'number'     => self::NETWORK_BATCH_SIZE,
+					'offset'     => $offset,
+					'orderby'    => 'id',
+					'order'      => 'ASC',
 				)
 			);
 
 			foreach ( $site_ids as $site_id ) {
-				switch_to_blog( $site_id );
-				self::create_schema();
-				restore_current_blog();
+				switch_to_blog( (int) $site_id );
+
+				try {
+					$result = self::create_schema();
+
+					if ( is_wp_error( $result ) ) {
+						return $result;
+					}
+				} finally {
+					restore_current_blog();
+				}
 			}
 
-			return;
-		}
+			$offset += self::NETWORK_BATCH_SIZE;
+		} while ( count( $site_ids ) === self::NETWORK_BATCH_SIZE );
 
-		self::create_schema();
+		return true;
 	}
 
 	/**
@@ -88,6 +169,8 @@ class Moqbo_DB {
 
 	/**
 	 * Create custom tables.
+	 *
+	 * @return true|WP_Error
 	 */
 	public static function create_schema() {
 		global $wpdb;
@@ -95,8 +178,8 @@ class Moqbo_DB {
 		// dbDelta() is defined in this core file and is called immediately below.
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		$charset_collate = $wpdb->get_charset_collate();
-		$events_table    = self::events_table();
+		$charset_collate  = $wpdb->get_charset_collate();
+		$events_table     = self::events_table();
 		$categories_table = self::categories_table();
 
 		$events_sql = "CREATE TABLE {$events_table} (
@@ -114,7 +197,7 @@ class Moqbo_DB {
 			KEY start_at (start_at),
 			KEY end_at (end_at),
 			KEY category_slug (category_slug),
-			KEY name (name)
+			KEY name (name(191))
 		) {$charset_collate};";
 
 		$categories_sql = "CREATE TABLE {$categories_table} (
@@ -124,13 +207,21 @@ class Moqbo_DB {
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (slug),
-			KEY name (name)
+			KEY name (name(191))
 		) {$charset_collate};";
 
 		dbDelta( $events_sql );
 		dbDelta( $categories_sql );
 
+		$valid = self::validate_schema();
+
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
 		self::flush_cache();
+
+		return true;
 	}
 
 	/**
@@ -149,15 +240,15 @@ class Moqbo_DB {
 	 * Return a category by slug.
 	 *
 	 * @param string $slug Category slug.
-	 * @return array|null
+	 * @return array|null|WP_Error
 	 */
 	public static function get_category( $slug ) {
 		global $wpdb;
 
 		$cache_key = self::cache_key( 'category', array( $slug ) );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return $cached;
 		}
 
@@ -165,8 +256,13 @@ class Moqbo_DB {
 			$wpdb->prepare( 'SELECT * FROM %i WHERE slug = %s', self::categories_table(), $slug ),
 			ARRAY_A
 		);
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $category, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $category, self::CACHE_GROUP, $category ? HOUR_IN_SECONDS : MINUTE_IN_SECONDS );
 
 		return $category;
 	}
@@ -175,7 +271,7 @@ class Moqbo_DB {
 	 * Count categories matching query args.
 	 *
 	 * @param array $args Query args.
-	 * @return int
+	 * @return int|WP_Error
 	 */
 	public static function count_categories( $args = array() ) {
 		global $wpdb;
@@ -188,9 +284,9 @@ class Moqbo_DB {
 		$args['search'] = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
 
 		$cache_key = self::cache_key( 'count_categories', $args );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return (int) $cached;
 		}
 
@@ -206,8 +302,13 @@ class Moqbo_DB {
 				$like
 			)
 		);
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, $count > 0 ? HOUR_IN_SECONDS : MINUTE_IN_SECONDS );
 
 		return $count;
 	}
@@ -245,9 +346,9 @@ class Moqbo_DB {
 		$order   = 'DESC' === $args['order'] ? 'DESC' : 'ASC';
 
 		$cache_key = self::cache_key( 'categories', $args );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return $cached;
 		}
 
@@ -297,8 +398,13 @@ class Moqbo_DB {
 				ARRAY_A
 			);
 		}
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $categories, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $categories, self::CACHE_GROUP, empty( $categories ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
 
 		return $categories;
 	}
@@ -307,7 +413,7 @@ class Moqbo_DB {
 	 * Insert a category.
 	 *
 	 * @param array $data Category data.
-	 * @return bool
+	 * @return true|WP_Error
 	 */
 	public static function insert_category( $data ) {
 		global $wpdb;
@@ -324,51 +430,55 @@ class Moqbo_DB {
 			array( '%s', '%s', '%s', '%s', '%s' )
 		);
 
-		if ( false !== $inserted ) {
-			self::flush_cache();
+		if ( false === $inserted ) {
+			return self::database_write_error( 'moqbo_save_category_failed', __( 'The category could not be saved.', 'moqbo' ) );
 		}
 
-		return false !== $inserted;
+		self::flush_cache();
+
+		return true;
 	}
 
 	/**
-	 * Update a category and keep event references in sync when the slug changes.
+	 * Update a category while keeping its slug immutable.
 	 *
 	 * @param string $old_slug Existing slug.
 	 * @param array  $data Category data.
-	 * @return bool
+	 * @return true|WP_Error
 	 */
 	public static function update_category( $old_slug, $data ) {
 		global $wpdb;
 
+		if ( $old_slug !== $data['slug'] ) {
+			return new WP_Error( 'moqbo_category_slug_immutable', __( 'Category slugs cannot be changed after creation.', 'moqbo' ) );
+		}
+
 		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
 			self::categories_table(),
 			array(
-				'slug'       => $data['slug'],
 				'name'       => $data['name'],
 				'color'      => $data['color'],
 				'updated_at' => $data['updated_at'],
 			),
 			array( 'slug' => $old_slug ),
-			array( '%s', '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%s' )
 		);
 
 		if ( false === $updated ) {
-			return false;
+			return self::database_write_error( 'moqbo_save_category_failed', __( 'The category could not be saved.', 'moqbo' ) );
 		}
 
-		if ( $old_slug !== $data['slug'] ) {
-			$references_updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
-				self::events_table(),
-				array( 'category_slug' => $data['slug'] ),
-				array( 'category_slug' => $old_slug ),
-				array( '%s' ),
-				array( '%s' )
-			);
+		if ( 0 === $updated ) {
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT slug FROM %i WHERE slug = %s', self::categories_table(), $old_slug ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Missing-row verification.
+			$error  = self::database_read_error();
 
-			if ( false === $references_updated ) {
-				return false;
+			if ( is_wp_error( $error ) ) {
+				return $error;
+			}
+
+			if ( ! $exists ) {
+				return new WP_Error( 'moqbo_missing_category', __( 'The category no longer exists.', 'moqbo' ) );
 			}
 		}
 
@@ -381,23 +491,28 @@ class Moqbo_DB {
 	 * Count events for a category slug.
 	 *
 	 * @param string $slug Category slug.
-	 * @return int
+	 * @return int|WP_Error
 	 */
 	public static function count_events_for_category( $slug ) {
 		global $wpdb;
 
 		$cache_key = self::cache_key( 'count_events_for_category', array( $slug ) );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return (int) $cached;
 		}
 
 		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
 			$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE category_slug = %s', self::events_table(), $slug )
 		);
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, $count > 0 ? HOUR_IN_SECONDS : MINUTE_IN_SECONDS );
 
 		return $count;
 	}
@@ -406,7 +521,7 @@ class Moqbo_DB {
 	 * Delete categories that are not referenced by events.
 	 *
 	 * @param array $slugs Category slugs.
-	 * @return array Deleted and blocked slugs.
+	 * @return array Structured delete result.
 	 */
 	public static function delete_categories( $slugs ) {
 		global $wpdb;
@@ -414,18 +529,42 @@ class Moqbo_DB {
 		$result = array(
 			'deleted' => array(),
 			'blocked' => array(),
+			'missing' => array(),
+			'failed'  => array(),
 		);
 
 		foreach ( array_filter( array_map( 'sanitize_title', (array) $slugs ) ) as $slug ) {
-			if ( self::count_events_for_category( $slug ) > 0 ) {
-				$result['blocked'][] = $slug;
+			$lock = self::acquire_lock( 'write' );
+
+			if ( is_wp_error( $lock ) ) {
+				$result['failed'][] = $slug;
 				continue;
 			}
 
-			$deleted = $wpdb->delete( self::categories_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
+			try {
+				$count = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE category_slug = %s', self::events_table(), $slug ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Locked integrity check.
 
-			if ( false !== $deleted && $deleted > 0 ) {
-				$result['deleted'][] = $slug;
+				if ( is_wp_error( self::database_read_error() ) ) {
+					$result['failed'][] = $slug;
+					continue;
+				}
+
+				if ( (int) $count > 0 ) {
+					$result['blocked'][] = $slug;
+					continue;
+				}
+
+				$deleted = $wpdb->delete( self::categories_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
+
+				if ( false === $deleted ) {
+					$result['failed'][] = $slug;
+				} elseif ( 0 === $deleted ) {
+					$result['missing'][] = $slug;
+				} else {
+					$result['deleted'][] = $slug;
+				}
+			} finally {
+				self::release_lock( 'write' );
 			}
 		}
 
@@ -440,15 +579,15 @@ class Moqbo_DB {
 	 * Return an event by slug.
 	 *
 	 * @param string $slug Event slug.
-	 * @return array|null
+	 * @return array|null|WP_Error
 	 */
 	public static function get_event( $slug ) {
 		global $wpdb;
 
 		$cache_key = self::cache_key( 'event', array( $slug ) );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return $cached;
 		}
 
@@ -464,8 +603,13 @@ class Moqbo_DB {
 			),
 			ARRAY_A
 		);
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $event, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $event, self::CACHE_GROUP, $event ? HOUR_IN_SECONDS : MINUTE_IN_SECONDS );
 
 		return $event;
 	}
@@ -474,7 +618,7 @@ class Moqbo_DB {
 	 * Return the next upcoming event whose name contains a search string.
 	 *
 	 * @param string $name Event name fragment.
-	 * @return array|null
+	 * @return array|null|WP_Error
 	 */
 	public static function get_next_event_by_name( $name ) {
 		global $wpdb;
@@ -483,9 +627,9 @@ class Moqbo_DB {
 		$today_start = current_time( 'Y-m-d' ) . ' 00:00:00';
 		$now         = current_time( 'mysql' );
 		$cache_key   = self::cache_key( 'next_event_by_name', array( $name, current_time( 'Y-m-d H:i' ) ) );
-		$cached      = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached      = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return $cached;
 		}
 
@@ -504,6 +648,11 @@ class Moqbo_DB {
 			),
 			ARRAY_A
 		);
+		$error = self::database_read_error();
+
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
 
 		wp_cache_set( $cache_key, $event, self::CACHE_GROUP, MINUTE_IN_SECONDS );
 
@@ -514,49 +663,47 @@ class Moqbo_DB {
 	 * Count events matching query args.
 	 *
 	 * @param array $args Query args.
-	 * @return int
+	 * @return int|WP_Error
 	 */
 	public static function count_events( $args = array() ) {
 		global $wpdb;
-		$args           = wp_parse_args(
-			$args,
-			array(
-				'search' => '',
-			)
+		$args = array(
+			'search' => isset( $args['search'] ) && is_scalar( $args['search'] )
+				? sanitize_text_field( (string) $args['search'] )
+				: '',
 		);
-		$args['search'] = is_scalar( $args['search'] ) ? sanitize_text_field( (string) $args['search'] ) : '';
 
 		$cache_key = self::cache_key( 'count_events', $args );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return (int) $cached;
 		}
 
-		if ( '' === $args['search'] ) {
-			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
-				$wpdb->prepare( 'SELECT COUNT(*) FROM %i', self::events_table() )
-			);
-		} else {
-			$like  = '%' . $wpdb->esc_like( $args['search'] ) . '%';
-			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
-				$wpdb->prepare(
-					'SELECT COUNT(*)
-					FROM %i e
-					LEFT JOIN %i c ON c.slug = e.category_slug
-					WHERE ( e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s )',
-					self::events_table(),
-					self::categories_table(),
-					$like,
-					$like,
-					$like,
-					$like,
-					$like
-				)
-			);
+		$like  = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table query cached with the Moqbo cache group.
+			$wpdb->prepare(
+				'SELECT COUNT(*)
+				FROM %i e
+				LEFT JOIN %i c ON c.slug = e.category_slug
+				WHERE ( %s = \'\' OR e.name LIKE %s OR e.slug LIKE %s OR e.location LIKE %s OR e.description LIKE %s OR c.name LIKE %s )',
+				self::events_table(),
+				self::categories_table(),
+				$args['search'],
+				$like,
+				$like,
+				$like,
+				$like,
+				$like
+			)
+		);
+		$error = self::database_read_error();
+
+		if ( is_wp_error( $error ) ) {
+			return $error;
 		}
 
-		wp_cache_set( $cache_key, $count, self::CACHE_GROUP );
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, $count > 0 ? HOUR_IN_SECONDS : MINUTE_IN_SECONDS );
 
 		return $count;
 	}
@@ -565,7 +712,7 @@ class Moqbo_DB {
 	 * Get events with category metadata.
 	 *
 	 * @param array $args Query args.
-	 * @return array
+	 * @return array|WP_Error
 	 */
 	public static function get_events( $args = array() ) {
 		global $wpdb;
@@ -608,9 +755,9 @@ class Moqbo_DB {
 		$order   = 'DESC' === $args['order'] ? 'DESC' : 'ASC';
 
 		$cache_key = self::cache_key( 'events', $args );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 
-		if ( false !== $cached ) {
+		if ( $found ) {
 			return $cached;
 		}
 
@@ -678,8 +825,13 @@ class Moqbo_DB {
 				ARRAY_A
 			);
 		}
+		$error = self::database_read_error();
 
-		wp_cache_set( $cache_key, $events, self::CACHE_GROUP );
+		if ( is_wp_error( $error ) ) {
+			return $error;
+		}
+
+		wp_cache_set( $cache_key, $events, self::CACHE_GROUP, empty( $events ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
 
 		return $events;
 	}
@@ -688,33 +840,55 @@ class Moqbo_DB {
 	 * Insert an event.
 	 *
 	 * @param array $data Event data.
-	 * @return bool
+	 * @return true|WP_Error
 	 */
 	public static function insert_event( $data ) {
 		global $wpdb;
+		$lock = self::acquire_lock( 'write' );
 
-		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table write; cache invalidated on success.
-			self::events_table(),
-			array(
-				'name'          => $data['name'],
-				'slug'          => $data['slug'],
-				'location'      => $data['location'],
-				'category_slug' => $data['category_slug'],
-				'description'   => $data['description'],
-				'all_day'       => (int) $data['all_day'],
-				'start_at'      => $data['start_at'],
-				'end_at'        => $data['end_at'],
-				'created_at'    => $data['created_at'],
-				'updated_at'    => $data['updated_at'],
-			),
-			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
-		);
-
-		if ( false !== $inserted ) {
-			self::flush_cache();
+		if ( is_wp_error( $lock ) ) {
+			return $lock;
 		}
 
-		return false !== $inserted;
+		try {
+			$category_exists = $wpdb->get_var( $wpdb->prepare( 'SELECT slug FROM %i WHERE slug = %s', self::categories_table(), $data['category_slug'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Locked integrity check.
+			$error           = self::database_read_error();
+
+			if ( is_wp_error( $error ) ) {
+				return $error;
+			}
+
+			if ( ! $category_exists ) {
+				return new WP_Error( 'moqbo_missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
+			}
+
+			$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Custom table write; cache invalidated on success.
+				self::events_table(),
+				array(
+					'name'          => $data['name'],
+					'slug'          => $data['slug'],
+					'location'      => $data['location'],
+					'category_slug' => $data['category_slug'],
+					'description'   => $data['description'],
+					'all_day'       => (int) $data['all_day'],
+					'start_at'      => $data['start_at'],
+					'end_at'        => $data['end_at'],
+					'created_at'    => $data['created_at'],
+					'updated_at'    => $data['updated_at'],
+				),
+				array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' )
+			);
+
+			if ( false === $inserted ) {
+				return self::database_write_error( 'moqbo_save_event_failed', __( 'The event could not be saved.', 'moqbo' ) );
+			}
+
+			self::flush_cache();
+
+			return true;
+		} finally {
+			self::release_lock( 'write' );
+		}
 	}
 
 	/**
@@ -722,60 +896,174 @@ class Moqbo_DB {
 	 *
 	 * @param string $old_slug Existing slug.
 	 * @param array  $data Event data.
-	 * @return bool
+	 * @return true|WP_Error
 	 */
 	public static function update_event( $old_slug, $data ) {
 		global $wpdb;
+		$lock = self::acquire_lock( 'write' );
 
-		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
-			self::events_table(),
-			array(
-				'name'          => $data['name'],
-				'slug'          => $data['slug'],
-				'location'      => $data['location'],
-				'category_slug' => $data['category_slug'],
-				'description'   => $data['description'],
-				'all_day'       => (int) $data['all_day'],
-				'start_at'      => $data['start_at'],
-				'end_at'        => $data['end_at'],
-				'updated_at'    => $data['updated_at'],
-			),
-			array( 'slug' => $old_slug ),
-			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ),
-			array( '%s' )
-		);
-
-		if ( false !== $updated ) {
-			self::flush_cache();
+		if ( is_wp_error( $lock ) ) {
+			return $lock;
 		}
 
-		return false !== $updated;
+		try {
+			$category_exists = $wpdb->get_var( $wpdb->prepare( 'SELECT slug FROM %i WHERE slug = %s', self::categories_table(), $data['category_slug'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Locked integrity check.
+			$error           = self::database_read_error();
+
+			if ( is_wp_error( $error ) ) {
+				return $error;
+			}
+
+			if ( ! $category_exists ) {
+				return new WP_Error( 'moqbo_missing_category', __( 'Choose an existing event category.', 'moqbo' ) );
+			}
+
+			$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated on success.
+				self::events_table(),
+				array(
+					'name'          => $data['name'],
+					'slug'          => $data['slug'],
+					'location'      => $data['location'],
+					'category_slug' => $data['category_slug'],
+					'description'   => $data['description'],
+					'all_day'       => (int) $data['all_day'],
+					'start_at'      => $data['start_at'],
+					'end_at'        => $data['end_at'],
+					'updated_at'    => $data['updated_at'],
+				),
+				array( 'slug' => $old_slug ),
+				array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ),
+				array( '%s' )
+			);
+
+			if ( false === $updated ) {
+				return self::database_write_error( 'moqbo_save_event_failed', __( 'The event could not be saved.', 'moqbo' ) );
+			}
+
+			if ( 0 === $updated ) {
+				$exists = $wpdb->get_var( $wpdb->prepare( 'SELECT slug FROM %i WHERE slug = %s', self::events_table(), $old_slug ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Locked missing-row verification.
+				$error  = self::database_read_error();
+
+				if ( is_wp_error( $error ) ) {
+					return $error;
+				}
+
+				if ( ! $exists ) {
+					return new WP_Error( 'moqbo_missing_event', __( 'The event no longer exists.', 'moqbo' ) );
+				}
+			}
+
+			self::flush_cache();
+
+			return true;
+		} finally {
+			self::release_lock( 'write' );
+		}
 	}
 
 	/**
 	 * Delete events by slug.
 	 *
 	 * @param array $slugs Event slugs.
-	 * @return int
+	 * @return array Structured delete result.
 	 */
 	public static function delete_events( $slugs ) {
 		global $wpdb;
 
-		$deleted = 0;
+		$result = array(
+			'deleted' => array(),
+			'missing' => array(),
+			'failed'  => array(),
+		);
 
 		foreach ( array_filter( array_map( 'sanitize_title', (array) $slugs ) ) as $slug ) {
-			$result = $wpdb->delete( self::events_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
+			$deleted = $wpdb->delete( self::events_table(), array( 'slug' => $slug ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom table write; cache invalidated after deletes.
 
-			if ( false !== $result ) {
-				$deleted += (int) $result;
+			if ( false === $deleted ) {
+				$result['failed'][] = $slug;
+			} elseif ( 0 === $deleted ) {
+				$result['missing'][] = $slug;
+			} else {
+				$result['deleted'][] = $slug;
 			}
 		}
 
-		if ( $deleted > 0 ) {
+		if ( ! empty( $result['deleted'] ) ) {
 			self::flush_cache();
 		}
 
-		return $deleted;
+		return $result;
+	}
+
+	/**
+	 * Verify required schema postconditions after dbDelta().
+	 *
+	 * @return true|WP_Error
+	 */
+	private static function validate_schema() {
+		global $wpdb;
+
+		foreach ( array( self::events_table(), self::categories_table() ) as $table ) {
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Activation-time schema verification.
+
+			if ( $table !== $exists ) {
+				return new WP_Error( 'moqbo_schema_missing_table', __( 'A required Moqbo database table could not be created.', 'moqbo' ) );
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Return a generic error after a failed database read.
+	 *
+	 * @return true|WP_Error
+	 */
+	private static function database_read_error() {
+		global $wpdb;
+
+		return '' === $wpdb->last_error
+			? true
+			: new WP_Error( 'moqbo_database_error', __( 'Moqbo could not read from the database.', 'moqbo' ), array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Return a generic database write error.
+	 *
+	 * @param string $code Error code.
+	 * @param string $message Error message.
+	 * @return WP_Error
+	 */
+	private static function database_write_error( $code, $message ) {
+		return new WP_Error( $code, $message, array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Acquire a database advisory lock scoped to this site.
+	 *
+	 * @param string $context Lock context.
+	 * @return true|WP_Error
+	 */
+	private static function acquire_lock( $context ) {
+		global $wpdb;
+		$name   = 'moqbo:' . md5( $wpdb->dbname . ':' . get_current_blog_id() . ':' . $context );
+		$locked = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Cross-engine advisory lock for custom-table integrity.
+
+		return '1' === (string) $locked
+			? true
+			: new WP_Error( 'moqbo_database_lock_failed', __( 'Moqbo could not obtain a database lock. Try again.', 'moqbo' ), array( 'status' => 503 ) );
+	}
+
+	/**
+	 * Release a database advisory lock.
+	 *
+	 * @param string $context Lock context.
+	 */
+	private static function release_lock( $context ) {
+		global $wpdb;
+		$name = 'moqbo:' . md5( $wpdb->dbname . ':' . get_current_blog_id() . ':' . $context );
+
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Release matching custom-table advisory lock.
 	}
 
 	/**
@@ -794,10 +1082,6 @@ class Moqbo_DB {
 				'parts'        => $parts,
 			)
 		);
-
-		if ( false === $payload ) {
-			$payload = serialize( $parts ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- Cache key fallback for non-JSON-encodable values.
-		}
 
 		return 'moqbo_' . md5( $payload );
 	}
