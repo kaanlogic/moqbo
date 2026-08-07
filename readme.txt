@@ -32,22 +32,18 @@ Moqbo is a WordPress event calendar plugin for managing categorized timed and al
 2. Create an event under "Moqbo > Add Event".
 3. Add `[moqbo]` to a post or page.
 
-To display the next date for a matching event, use:
-
-`[moqbo-getdate name="Office Hours"]`
+To display the next date for a matching event, use `[moqbo-getdate name="Office Hours"]`.
 
 == API Usage ==
 
 Moqbo registers WordPress REST API routes under `/wp-json/moqbo/v1`. Enable the API and the required endpoint methods in "Moqbo > Settings" before calling the general events or categories endpoints.
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/events` | Creates an event. |
-| `GET` | `/events/{slug}` | Returns one event by slug. |
-| `GET` | `/events?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | Lists events within the date range. The range can span up to 366 days. |
-| `POST` | `/categories` | Creates a category. |
-| `GET` | `/categories` | Lists categories alphabetically. |
-| `GET` | `/categories/{slug}` | Returns one category by slug. |
+* `POST /events`: Creates an event.
+* `GET /events/{slug}`: Returns one event by slug.
+* `GET /events?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`: Lists events within the date range. The range can span up to 366 days.
+* `POST /categories`: Creates a category.
+* `GET /categories`: Lists categories alphabetically.
+* `GET /categories/{slug}`: Returns one category by slug.
 
 The general API has no update or delete endpoints. All date and time values are interpreted in the WordPress site's timezone. Event-list date ranges are inclusive: an event is returned when it overlaps any part of the requested range.
 
@@ -82,7 +78,7 @@ On success, the endpoint returns `201 Created` and a `Location` header pointing 
         "event_count": 0
     }
 
-`GET /wp-json/moqbo/v1/categories` returns an array of category objects with the same fields. Category names and slugs must be unique; `color` must be a six-digit hex value such as `#2271b1`.
+The `GET /wp-json/moqbo/v1/categories` endpoint returns an array of category objects with the same fields. Category names and slugs must be unique; `color` must be a six-digit hex value such as `#2271b1`.
 
 = Events =
 
