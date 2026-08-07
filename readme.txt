@@ -8,105 +8,89 @@ Stable tag: 1.0.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Lightweight calendar with event admin, categories, responsive shortcodes, and an optional token-protected REST API.
+Moqbo is a lightweight calendar for WordPress with event admin, categories, responsive shortcodes, and an optional token-protected REST API.
 
 == Description ==
 
 Moqbo is a WordPress event calendar plugin for managing categorized timed and all-day events. It stores events and categories in site-specific custom database tables, provides administration screens for managing that data, renders frontend calendars through shortcodes, and can expose selected read and write operations through an optional REST API.
 
-Features include:
+== Features ==
 
-* Admin screens for events, categories, and settings
-* Timed and all-day events
-* Category colors
-* Responsive week, month, week agenda, and month agenda calendar views
-* Site locale, timezone, and WordPress `start_of_week` support
-* Optional REST API with per-endpoint feature toggles
-* Optional bearer-token authentication for API requests
+* Does one thing, but one thing well: Managing and displaying events in a calendar
+* Built to be lightweight: Uses only events and categories
+* Shortcodes: Display the full calendar or the next matching event date on the frontend via `[moqbo]` or `[moqbo-getdate]` respectively
+* Optional REST API: Access and create events and categories for programmatic use
 
-Moqbo loads frontend calendar assets only when the `[moqbo]` shortcode is detected or rendered, so pages without a calendar do not carry the calendar bundle.
+== Requirements ==
 
-Event details use the WordPress date and time formats. The Schedule-X date picker follows the closest supported locale format.
+* WordPress 6.5 or newer
+* PHP 7.4 or newer
 
-== Installation ==
+== Quick Start ==
 
-1. Upload the `moqbo` folder to `/wp-content/plugins/`, or install it through the WordPress Plugins screen.
-2. Activate Moqbo from the Plugins screen.
-3. Go to "Moqbo > Categories" and create at least one event category.
-4. Go to "Moqbo > Add Event" and create an event.
-5. Add `[moqbo]` to any post or page where the calendar should appear.
+1. Create a category under "Moqbo > Categories".
+2. Create an event under "Moqbo > Add Event".
+3. Add `[moqbo]` to a post or page.
 
-== Usage ==
-
-= Display a calendar =
-
-Add this shortcode to a post or page:
-
-`[moqbo]`
-
-= Display the next date for a matching event =
-
-Add this shortcode and replace the name value with part or all of an event name:
+To display the next date for a matching event, use:
 
 `[moqbo-getdate name="Office Hours"]`
 
-If no upcoming event matches, Moqbo returns `n/a`.
+== API Usage ==
 
-= Configure features =
+Moqbo registers WordPress REST API routes under `/wp-json/moqbo/v1`. Enable the API and the required endpoint methods in "Moqbo > Settings" before calling the general events or categories endpoints.
 
-Go to "Moqbo > Settings" to enable or disable the calendar shortcode, date shortcode, REST API, individual REST endpoint methods, and token authentication for GET requests.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/events` | Creates an event. |
+| `GET` | `/events/{slug}` | Returns one event by slug. |
+| `GET` | `/events?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | Lists events within the date range. The range can span up to 366 days. |
+| `POST` | `/categories` | Creates a category. |
+| `GET` | `/categories` | Lists categories alphabetically. |
+| `GET` | `/categories/{slug}` | Returns one category by slug. |
 
-By default, the calendar shortcode, date shortcode, API, and GET endpoints are enabled. Token authentication for GET requests and both POST endpoints are disabled by default. Enabled POST endpoints always require the configured API token.
-
-== REST API ==
-
-Moqbo registers REST API routes under the `moqbo/v1` namespace.
-
-Available endpoints:
-
-* `GET /wp-json/moqbo/v1/events`
-* `POST /wp-json/moqbo/v1/events`
-* `GET /wp-json/moqbo/v1/events/{slug}`
-* `GET /wp-json/moqbo/v1/categories`
-* `POST /wp-json/moqbo/v1/categories`
-* `GET /wp-json/moqbo/v1/categories/{slug}`
-
-The calendar shortcode uses `GET /wp-json/moqbo/v1/calendar-events` to fetch up to 100 events from its visible date range. This support route is public whenever the calendar shortcode feature is enabled, independently of the optional general API setting, because it serves data displayed by public calendars.
-
-Each events and categories endpoint method can be enabled or disabled from "Moqbo > Settings".
+The general API has no update or delete endpoints. All date and time values are interpreted in the WordPress site's timezone. Event-list date ranges are inclusive: an event is returned when it overlaps any part of the requested range.
 
 = Authentication =
 
-Enabled events and categories GET endpoints are public when token authentication is disabled. When token authentication is enabled, clients must send the configured token. The calendar shortcode support route remains public as described above.
-
-POST endpoints are never public. An enabled POST endpoint requires the exact configured API token, independently of the current WordPress user and the GET authentication setting. Tokens must contain 32 to 255 letters, numbers, dots, underscores, tildes, plus signs, slashes, equals signs, or hyphens and should only be sent over HTTPS.
-
-Accepted authorization format:
+Enabled `GET` endpoints are public by default. When `Require token authentication for GET requests` is enabled, send the configured token as a bearer token. Enabled `POST` endpoints always require that token, regardless of the GET authentication setting.
 
 `Authorization: Bearer 0123456789abcdef0123456789abcdef01234567`
 
+Tokens must be 32 to 255 characters and should only be sent over HTTPS. Set `Content-Type: application/json` for JSON POST bodies.
+
+= Categories =
+
+Create a category before creating events that reference it:
+
+    POST /wp-json/moqbo/v1/categories
+    Content-Type: application/json
+    Authorization: Bearer 0123456789abcdef0123456789abcdef01234567
+
+    {
+        "name": "Meetings",
+        "slug": "meetings",
+        "color": "#2271b1"
+    }
+
+On success, the endpoint returns `201 Created` and a `Location` header pointing to `/wp-json/moqbo/v1/categories/meetings`:
+
+    {
+        "name": "Meetings",
+        "slug": "meetings",
+        "color": "#2271b1",
+        "event_count": 0
+    }
+
+`GET /wp-json/moqbo/v1/categories` returns an array of category objects with the same fields. Category names and slugs must be unique; `color` must be a six-digit hex value such as `#2271b1`.
+
 = Events =
 
-`GET /wp-json/moqbo/v1/events` returns events that overlap a date range.
+Create an event with an existing `category_slug`:
 
-Required query parameters:
-
-* `start_date` in `YYYY-MM-DD` format
-* `end_date` in `YYYY-MM-DD` format
-
-The date range may span at most 366 days.
-
-Example:
-
-`/wp-json/moqbo/v1/events?start_date=2026-01-01&end_date=2026-01-31`
-
-Event responses include `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, `end_at`, and `all_day`.
-
-`POST /wp-json/moqbo/v1/events` creates an event.
-
-Required fields are `name`, `slug`, `location`, `category_slug`, `description`, `start_at`, `end_at`, and the boolean `all_day`. Text values must be non-empty, the `category_slug` must reference an existing category, and event slugs must be unique. For `all_day: true`, both timestamps must be at midnight and the end may equal the start. For `all_day: false`, the end must be later than the start.
-
-Example request body:
+    POST /wp-json/moqbo/v1/events
+    Content-Type: application/json
+    Authorization: Bearer 0123456789abcdef0123456789abcdef01234567
 
     {
         "name": "Team Meeting",
@@ -119,77 +103,51 @@ Example request body:
         "all_day": false
     }
 
-Successful creation returns HTTP 201, a `Location` header for the new item route, and the complete event representation including `all_day`.
-
-= Categories =
-
-`GET /wp-json/moqbo/v1/categories` returns categories sorted by name.
-
-Category responses include `name`, `slug`, `color`, and `event_count`.
-
-`POST /wp-json/moqbo/v1/categories` creates a category.
-
-Required fields are `name`, `slug`, and `color`. Category slugs must be unique. The `color` value must be a six-character hex color, such as `#2271b1`.
-
-Example request body:
+On success, the endpoint returns `201 Created` and a `Location` header pointing to `/wp-json/moqbo/v1/events/team-meeting`:
 
     {
-        "name": "Meetings",
-        "slug": "meetings",
-        "color": "#2271b1"
+        "name": "Team Meeting",
+        "slug": "team-meeting",
+        "location": "Conference Room",
+        "category_slug": "meetings",
+        "description": "Weekly planning meeting.",
+        "start_at": "2026-01-15 09:00:00",
+        "end_at": "2026-01-15 10:00:00",
+        "all_day": false
     }
 
-Successful creation returns HTTP 201 and a `Location` header for the new category item route. Category slugs cannot be changed after creation.
+Use `GET /wp-json/moqbo/v1/events?start_date=2026-01-01&end_date=2026-01-31` to retrieve matching events. It returns a JSON array of event objects in start-time order; `GET /wp-json/moqbo/v1/events/team-meeting` returns one object using the same representation.
 
-== Frequently Asked Questions ==
+All event fields in the request body are required. `start_at` and `end_at` must use `YYYY-MM-DD HH:MM:SS`. Timed events must end after they start. All-day events must start and end at midnight, and their end may equal their start.
 
-= Does Moqbo load scripts on every page? =
+= Errors =
 
-No. Moqbo enqueues frontend assets when the queried content contains `[moqbo]`, with a footer fallback for dynamically rendered calendars. Event data is fetched only for the visible date range.
+WordPress REST errors are JSON objects. For example, an invalid or missing bearer token returns `401 Unauthorized`:
 
-= Are API endpoints public? =
+    {
+        "code": "moqbo_api_invalid_token",
+        "message": "A valid Moqbo API token is required.",
+        "data": {
+            "status": 401
+        }
+    }
 
-Enabled events and categories GET endpoints are public when token authentication is disabled. The calendar shortcode support route is public whenever that shortcode is enabled. POST endpoints always require the configured token.
+Disabled routes return `403`, malformed requests and validation failures return `400`, and requests for unknown event or category slugs return `404`.
 
-= Can external tools create events? =
+== Development ==
 
-Yes. Enable the API and the `POST /wp-json/moqbo/v1/events` endpoint, configure a token of at least 32 characters, and send it in the `Authorization` header over HTTPS. The event must reference an existing category.
+Frontend development requires Node.js 18 or newer and npm:
 
-= Can I disable write access but keep read access? =
+    npm ci
+    npm run build
 
-Yes. The Settings screen lets you enable GET endpoints while keeping POST endpoints disabled.
+Additional commands:
 
-= Does deleting a category delete its events? =
+    npm run format
+    npm run zip
 
-No. Moqbo blocks deletion of categories that still have events.
+The ZIP command requires WP-CLI with `dist-archive`. Test changes on a clean WordPress installation with `WP_DEBUG` enabled and run the official [Plugin Check](https://wordpress.org/plugins/plugin-check/) to find any potential issues.
 
-= What happens when I uninstall Moqbo? =
+== License ==
 
-Uninstalling Moqbo removes its custom database tables and settings. Export or back up event data before uninstalling if you need to keep it.
-
-== Development and Source Code ==
-
-The complete development source for Moqbo is publicly maintained at:
-
-https://github.com/kaanlogic/moqbo
-
-The generated files `assets/dist/frontend.js` and `assets/dist/frontend.css` are built from `src/frontend.js` and its npm imports. Do not edit the generated files directly.
-
-To reproduce the distributed frontend assets, install Node.js 18 or newer and run these commands from the plugin directory:
-
-`npm ci`
-
-`npm run build`
-
-Exact dependency versions and integrity hashes are recorded in `package-lock.json`. Licenses are listed in `third-party-notices.txt`. Source code for the bundled runtime libraries is available from their maintained public repositories:
-
-* Schedule-X Calendar and Theme: https://github.com/schedule-x/schedule-x
-* Preact: https://github.com/preactjs/preact
-* Preact Signals and Signals Core: https://github.com/preactjs/signals
-* Temporal Polyfill and Temporal Spec: https://github.com/fullcalendar/temporal-polyfill
-
-== Changelog ==
-
-= 1.0.0 =
-
-* Initial release.
+Moqbo is licensed under the [GNU General Public License v3.0 or later](license.txt). Third-party notices are available in [`third-party-notices.txt`](third-party-notices.txt).

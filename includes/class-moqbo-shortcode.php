@@ -200,7 +200,7 @@ class Moqbo_Shortcode {
 		return array(
 			'containerId' => $container_id,
 			'modalId'     => $modal_id,
-			'eventsUrl'   => rest_url( Moqbo_API::REST_NAMESPACE . '/calendar-events' ),
+			'eventsUrl'   => rest_url( Moqbo_API::REST_NAMESPACE . '/render' ),
 			'config'      => array(
 				'timezone'             => self::schedule_x_timezone(),
 				'locale'               => self::schedule_x_locale(),

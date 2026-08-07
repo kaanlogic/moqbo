@@ -46,7 +46,7 @@ class Moqbo_API {
 	public static function register_routes() {
 		register_rest_route(
 			self::REST_NAMESPACE,
-			'/calendar-events',
+			'/render',
 			array(
 				array(
 					'methods'             => WP_REST_Server::READABLE,
